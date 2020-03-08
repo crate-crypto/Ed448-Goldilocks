@@ -120,11 +120,11 @@ fn sub_extra(a: &Scalar, b: &Scalar, carry: u32) -> Scalar {
 
     // if the result of a-b was negative and carry was zero
     // then borrow will be 0xfff..fff and the modulus will be added conditionally to the result
-    // If the carry was 1 and a-b was not negative, then the borrow will be 0x00000...001 (this should not happen)
+    // If the carry was 1 and a-b was not negative, then the borrow will be 0x00000...001
+    // XXX: Explain why the case of borrow == 1 should never happen
     borrow = borrow + (carry as i64);
     assert!(borrow == -1 || borrow == 0);
     let mut chain = 0i64;
-
     for i in 0..14 {
         chain += (result.0[i] as i64) + ((MODULUS.0[i] as i64) & borrow);
         result.0[i] = chain as u32;
