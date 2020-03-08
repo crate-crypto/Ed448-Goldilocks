@@ -1,4 +1,4 @@
-use super::constants::{NUM_LIMBS, WORD_BITS};
+use super::constants::NUM_LIMBS;
 use std::ops::{Add, Mul, Sub};
 /// This is the scalar field
 /// size = 4q = 2^446 - 0x8335dc163bb124b65129c96fde933d8d723a70aadc873d6d54a7bb0d
@@ -24,35 +24,6 @@ impl From<u32> for Scalar {
 }
 
 // Trait implementations
-
-// Adds a + b + carry and returns the result with the carry bit
-const fn adc(a: u32, b: u32, carry: u32) -> (u32, u32) {
-    let carry_result = (a as u64) + (b as u64) + (carry as u64);
-
-    // Compute the result as the lower 32 bits
-    let result = carry_result as u32;
-
-    // Compute the carry as 33rd bit
-    let carry = (carry_result >> WORD_BITS) as u32;
-
-    // Return result and the carry flag
-    (result as u32, carry)
-}
-
-// Subtracts a - b + borrow and returns the result with the borrow bit
-const fn sbb(a: u32, b: u32, borrow: i64) -> (u32, i64) {
-    let borrow_result = (a as i64) - (b as i64) + borrow;
-
-    // Compute the result as the lower 32 bits
-    let result = borrow_result as u32;
-
-    // Compute the borrow as the 33rd bit
-
-    let borrow = borrow_result >> WORD_BITS;
-
-    // Return the result with the borrow flag
-    (result as u32, borrow)
-}
 
 impl Add<Scalar> for Scalar {
     type Output = Scalar;
@@ -94,40 +65,50 @@ pub fn add(a: &Scalar, b: &Scalar) -> Scalar {
     // Since our limbs are saturated, the result of each
     // limb being added can be a 33-bit integer so we propagate the carry bit
     let mut result = Scalar::zero();
-    let mut carry = 0u32;
 
     // a + b
+    let mut chain = 0u64;
     for i in 0..14 {
-        let (r, carr) = adc(a.0[i], b.0[i], carry);
-        result.0[i] = r;
-        carry = carr
+        chain += (a.0[i] as u64) + (b.0[i] as u64);
+        // Low 32 bits are the results
+        result.0[i] = chain as u32;
+        // 33rd bit is the carry
+        chain >>= 32;
     }
 
     // Now reduce the results
-    sub_extra(&result, &MODULUS, carry)
+    sub_extra(&result, &MODULUS, chain as u32)
 }
-/// Compute a -b mod p
+
+/// Compute a - b mod p
+/// Computes a -b and conditionally computes the modulus if the result was negative
 fn sub_extra(a: &Scalar, b: &Scalar, carry: u32) -> Scalar {
     let mut result = Scalar::zero();
 
     // a - b
-    let mut borrow = 0i64;
+    let mut chain = 0i64;
     for i in 0..14 {
-        let (res, borr) = sbb(a.0[i], b.0[i], borrow);
-        result.0[i] = res;
-        borrow = borr
+        chain += a.0[i] as i64 - b.0[i] as i64;
+        // Low 32 bits are the results
+        result.0[i] = chain as u32;
+        // 33rd bit is the borrow
+        chain >>= 32
     }
 
     // if the result of a-b was negative and carry was zero
     // then borrow will be 0xfff..fff and the modulus will be added conditionally to the result
-    // If the carry was 1 and a-b was not negative, then the borrow will be 0x00000...001
+    // If the carry was 1 and a-b was not negative, then the borrow will be 0x00000...001 ( this should not happen)
+    // Since the borrow should never be more than 0, the carry should never be more than 1;
     // XXX: Explain why the case of borrow == 1 should never happen
-    borrow = borrow + (carry as i64);
+    let borrow = chain + (carry as i64);
     assert!(borrow == -1 || borrow == 0);
-    let mut chain = 0i64;
+
+    chain = 0i64;
     for i in 0..14 {
         chain += (result.0[i] as i64) + ((MODULUS.0[i] as i64) & borrow);
+        // Low 32 bits are the results
         result.0[i] = chain as u32;
+        // 33rd bit is the carry
         chain >>= 32;
     }
 
@@ -148,7 +129,7 @@ fn montgomery_multiply(x: &Scalar, y: &Scalar) -> Scalar {
         for j in 0..14 {
             chain += mul_add(x.0[i], y.0[j], result.0[j]);
             result.0[j] = chain as u32;
-            chain >>= WORD_BITS;
+            chain >>= 32;
         }
 
         let saved = chain as u32;
@@ -160,11 +141,11 @@ fn montgomery_multiply(x: &Scalar, y: &Scalar) -> Scalar {
             if j > 0 {
                 result.0[j - 1] = chain as u32;
             }
-            chain >>= WORD_BITS;
+            chain >>= 32;
         }
         chain += (saved as u64) + (carry as u64);
         result.0[NUM_LIMBS - 1] = chain as u32;
-        carry = (chain >> WORD_BITS) as u32;
+        carry = (chain >> 32) as u32;
     }
 
     sub_extra(&result, &MODULUS, carry)
