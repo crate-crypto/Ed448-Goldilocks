@@ -304,6 +304,8 @@ impl Fq {
         // assert!(carry < 2 && (carry as u32) + (scarry as u32) == 0);
     }
 
+    // Adds the two field elements together
+    // Result is not reduced
     fn add_no_reduce(&self, rhs: &Fq) -> Fq {
         let mut result = Fq::zero();
 
@@ -326,6 +328,8 @@ impl Fq {
 
         result
     }
+    // Subtracts the two field elements from each other
+    // Result is not reduced
     fn sub_no_reduce(&self, rhs: &Fq) -> Fq {
         let mut result = Fq::zero();
         result[0] = self[0] - rhs[0];
@@ -346,7 +350,8 @@ impl Fq {
         result[15] = self[15] - rhs[15];
         result
     }
-    // temporary equal function, ideally would like to avoid cloning
+    // Temporary equal function, ideally would like to avoid cloning
+    // But it is need when we reduce the elements
     fn equals(&self, rhs: &Fq) -> bool {
         let mut r = 0u32;
         let mut x = self.clone();
