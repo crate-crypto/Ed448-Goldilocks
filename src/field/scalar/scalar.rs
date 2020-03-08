@@ -57,20 +57,7 @@ const fn sbb(a: u32, b: u32, borrow: i64) -> (u32, i64) {
 impl Add<Scalar> for Scalar {
     type Output = Scalar;
     fn add(self, rhs: Scalar) -> Self::Output {
-        // First add the two Scalars together
-        // Since our limbs are saturated, the result of each
-        // limb being added can be a 33-bit integer so we propagate the carry bit
-        let mut result = Scalar::zero();
-        let mut carry = 0u32;
-
-        for i in 0..14 {
-            let (r, carr) = adc(self.0[i], rhs.0[i], carry);
-            result.0[i] = r;
-            carry = carr;
-        }
-
-        // Now reduce the results
-        sub_extra(&result, &MODULUS, carry)
+        add(&self, &rhs)
     }
 }
 impl Mul<Scalar> for Scalar {
@@ -101,19 +88,42 @@ impl Scalar {
         todo!()
     }
 }
-
-fn sub_extra(minuend: &Scalar, subtrahend: &Scalar, carry: u32) -> Scalar {
+/// Computes a + b mod p
+pub fn add(a: &Scalar, b: &Scalar) -> Scalar {
+    // First add the two Scalars together
+    // Since our limbs are saturated, the result of each
+    // limb being added can be a 33-bit integer so we propagate the carry bit
     let mut result = Scalar::zero();
-    let mut chain = 0i64;
+    let mut carry = 0u32;
 
+    // a + b
     for i in 0..14 {
-        chain += (minuend.0[i] as i64) - (subtrahend.0[i] as i64);
-        result.0[i] = chain as u32;
-        chain >>= 32;
+        let (r, carr) = adc(a.0[i], b.0[i], carry);
+        result.0[i] = r;
+        carry = carr
     }
 
-    let borrow = chain + (carry as i64);
-    chain = 0;
+    // Now reduce the results
+    sub_extra(&result, &MODULUS, carry)
+}
+/// Compute a -b mod p
+fn sub_extra(a: &Scalar, b: &Scalar, carry: u32) -> Scalar {
+    let mut result = Scalar::zero();
+
+    // a - b
+    let mut borrow = 0i64;
+    for i in 0..14 {
+        let (res, borr) = sbb(a.0[i], b.0[i], borrow);
+        result.0[i] = res;
+        borrow = borr
+    }
+
+    // if the result of a-b was negative and carry was zero
+    // then borrow will be 0xfff..fff and the modulus will be added conditionally to the result
+    // If the carry was 1 and a-b was not negative, then the borrow will be 0x00000...001 (this should not happen)
+    borrow = borrow + (carry as i64);
+    assert!(borrow == -1 || borrow == 0);
+    let mut chain = 0i64;
 
     for i in 0..14 {
         chain += (result.0[i] as i64) + ((MODULUS.0[i] as i64) & borrow);
