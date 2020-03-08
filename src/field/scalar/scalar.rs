@@ -1,13 +1,12 @@
+use super::constants::{NUM_LIMBS, WORD_BITS};
 use std::ops::{Add, Mul, Sub};
+/// This is the scalar field
+/// size = 4q = 2^446 - 0x8335dc163bb124b65129c96fde933d8d723a70aadc873d6d54a7bb0d
+/// We can therefore use 14 saturated 32-bit limbs
+/// in LE format
 
-// This is the scalar field
-// size = 4q = 2^446 - 0x8335dc163bb124b65129c96fde933d8d723a70aadc873d6d54a7bb0d
-// We can therefore use 14 saturated 32-bit limbs
-// in LE format
-/// note: Montgomery reduction and barret are both used: montgomery when multiplying and barret when decoding
-/// Probably easier to stick to montgomery I think
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub struct Scalar([u32; 14]);
+pub struct Scalar([u32; NUM_LIMBS]);
 
 const MODULUS: Scalar = Scalar([
     0xab5844f3, 0x2378c292, 0x8dc58f55, 0x216cc272, 0xaed63690, 0xc44edb49, 0x7cca23e9, 0xffffffff,
@@ -26,17 +25,52 @@ impl From<u32> for Scalar {
 
 // Trait implementations
 
+// Adds a + b + carry and returns the result with the carry bit
+const fn adc(a: u32, b: u32, carry: u32) -> (u32, u32) {
+    let carry_result = (a as u64) + (b as u64) + (carry as u64);
+
+    // Compute the result as the lower 32 bits
+    let result = carry_result as u32;
+
+    // Compute the carry as 33rd bit
+    let carry = (carry_result >> WORD_BITS) as u32;
+
+    // Return result and the carry flag
+    (result as u32, carry)
+}
+
+// Subtracts a - b + borrow and returns the result with the borrow bit
+const fn sbb(a: u32, b: u32, borrow: i64) -> (u32, i64) {
+    let borrow_result = (a as i64) - (b as i64) + borrow;
+
+    // Compute the result as the lower 32 bits
+    let result = borrow_result as u32;
+
+    // Compute the borrow as the 33rd bit
+
+    let borrow = borrow_result >> WORD_BITS;
+
+    // Return the result with the borrow flag
+    (result as u32, borrow)
+}
+
 impl Add<Scalar> for Scalar {
     type Output = Scalar;
     fn add(self, rhs: Scalar) -> Self::Output {
-        let mut chain = 0u64;
+        // First add the two Scalars together
+        // Since our limbs are saturated, the result of each
+        // limb being added can be a 33-bit integer so we propagate the carry bit
         let mut result = Scalar::zero();
+        let mut carry = 0u32;
+
         for i in 0..14 {
-            chain += self.0[i] as u64 + rhs.0[i] as u64;
-            result.0[i] = chain as u32;
-            chain >>= 32
+            let (r, carr) = adc(self.0[i], rhs.0[i], carry);
+            result.0[i] = r;
+            carry = carr;
         }
-        sub_extra(&result, &MODULUS, chain as u32)
+
+        // Now reduce the results
+        sub_extra(&result, &MODULUS, carry)
     }
 }
 impl Mul<Scalar> for Scalar {
@@ -104,7 +138,7 @@ fn montgomery_multiply(x: &Scalar, y: &Scalar) -> Scalar {
         for j in 0..14 {
             chain += mul_add(x.0[i], y.0[j], result.0[j]);
             result.0[j] = chain as u32;
-            chain >>= 32;
+            chain >>= WORD_BITS;
         }
 
         let saved = chain as u32;
@@ -116,11 +150,11 @@ fn montgomery_multiply(x: &Scalar, y: &Scalar) -> Scalar {
             if j > 0 {
                 result.0[j - 1] = chain as u32;
             }
-            chain >>= 32;
+            chain >>= WORD_BITS;
         }
         chain += (saved as u64) + (carry as u64);
-        result.0[14 - 1] = chain as u32;
-        carry = (chain >> 32) as u32;
+        result.0[NUM_LIMBS - 1] = chain as u32;
+        carry = (chain >> WORD_BITS) as u32;
     }
 
     sub_extra(&result, &MODULUS, carry)
