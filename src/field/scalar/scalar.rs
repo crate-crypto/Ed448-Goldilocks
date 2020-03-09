@@ -6,7 +6,7 @@ use std::ops::{Add, Mul, Sub};
 /// in LE format
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub struct Scalar([u32; NUM_LIMBS]);
+pub struct Scalar([u32; 14]);
 
 const MODULUS: Scalar = Scalar([
     0xab5844f3, 0x2378c292, 0x8dc58f55, 0x216cc272, 0xaed63690, 0xc44edb49, 0x7cca23e9, 0xffffffff,
@@ -58,6 +58,26 @@ impl Scalar {
     pub fn invert(&self) -> Self {
         todo!()
     }
+    /// Halves a Scalar
+    // XXX: What is expected output on odd Scalars
+    pub fn halve(&self) -> Self {
+        let mut result = Scalar::zero();
+
+        let mask = -((self.0[0] & 1) as i64);
+        let mut chain = 0u64;
+
+        for i in 0..14 {
+            chain += (self.0[i] as u64) + ((MODULUS.0[i] as i64 & mask) as u64);
+            result.0[i] = chain as u32;
+            chain >>= 32
+        }
+
+        for i in 0..13 {
+            result.0[i] = (result.0[i] >> 1) | (result.0[i] << 31);
+        }
+        result.0[13] = (result.0[13] >> 1) | ((chain << 31) as u32);
+        result
+    }
 }
 /// Computes a + b mod p
 pub fn add(a: &Scalar, b: &Scalar) -> Scalar {
@@ -81,7 +101,7 @@ pub fn add(a: &Scalar, b: &Scalar) -> Scalar {
 }
 
 /// Compute a - b mod p
-/// Computes a -b and conditionally computes the modulus if the result was negative
+/// Computes a - b and conditionally computes the modulus if the result was negative
 fn sub_extra(a: &Scalar, b: &Scalar, carry: u32) -> Scalar {
     let mut result = Scalar::zero();
 
@@ -178,4 +198,13 @@ fn test_basic_mul() {
 fn test_basic_square() {
     let five = Scalar::from(5);
     assert_eq!(five.square(), Scalar::from(25))
+}
+#[test]
+fn test_basic_halving() {
+    let eight = Scalar::from(8);
+    let four = Scalar::from(4);
+    let two = Scalar::from(2);
+    assert_eq!(eight.halve(), four);
+    assert_eq!(four.halve(), two);
+    assert_eq!(two.halve(), Scalar::one());
 }
