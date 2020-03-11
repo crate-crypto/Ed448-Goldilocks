@@ -1,5 +1,4 @@
 use super::karatsuba;
-use super::limb28::Limb28;
 use std::ops::{Add, Index, IndexMut, Mul};
 /// Fq represents an element in the field
 /// q = 2^448 - 2^224 -1
@@ -9,28 +8,11 @@ use std::ops::{Add, Index, IndexMut, Mul};
 ///
 /// XXX: Compute the wiggle room
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub struct Fq(pub(crate) [Limb28; 16]);
+pub struct Fq(pub(crate) [u32; 16]);
 
 impl From<u32> for Fq {
     fn from(a: u32) -> Fq {
-        Fq([
-            Limb28::from(a),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-            Limb28::zero(),
-        ])
+        Fq([a, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     }
 }
 impl From<u16> for Fq {
@@ -45,7 +27,7 @@ impl From<u8> for Fq {
 }
 
 impl Index<usize> for Fq {
-    type Output = Limb28;
+    type Output = u32;
     fn index(&self, a: usize) -> &Self::Output {
         &self.0[a]
     }
@@ -74,14 +56,20 @@ impl Fq {
     pub(crate) fn zero() -> Fq {
         Fq::from(0u8)
     }
+    fn is_zero() -> bool {
+        todo!()
+    }
+    fn is_residue() -> bool {
+        todo!()
+    }
     pub(crate) fn one() -> Fq {
         Fq::from(1u8)
     }
     /// Bias adds a multiple of `p` to self
-    fn bias(&mut self, b: Limb28) {
+    fn bias(&mut self, b: u32) {
         const MASK: u32 = (1 << 28) - 1;
 
-        let co1 = Limb28::from_checked_u64(b * MASK);
+        let co1 = b * MASK;
         let co2 = co1 - b;
 
         let lo = [co1; 4];
@@ -140,12 +128,12 @@ impl Fq {
         // 0 < self < 2p
         self.weak_reduce();
 
-        fn sub_carry(a: Limb28, b: i64) -> i64 {
-            let x = a.value() as i64;
+        fn sub_carry(a: u32, b: i64) -> i64 {
+            let x = a as i64;
             x - b
         }
-        fn add_carry(a: Limb28, b: u64) -> u64 {
-            let x = a.value() as u64;
+        fn add_carry(a: u32, b: u64) -> u64 {
+            let x = a as u64;
             x + b
         }
 
@@ -155,67 +143,52 @@ impl Fq {
 
         let mut scarry = 0i64;
         scarry += sub_carry(self[0], 0xfffffff);
-        self[0] = Limb28::from_checked_i64(scarry) & MASK;
+        self[0] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[1], 0xfffffff);
-        self[1] = Limb28::from_checked_i64(scarry) & MASK;
+        self[1] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[2], 0xfffffff);
-        self[2] = Limb28::from_checked_i64(scarry) & MASK;
+        self[2] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[3], 0xfffffff);
-        self[3] = Limb28::from_checked_i64(scarry) & MASK;
+        self[3] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[4], 0xfffffff);
-        self[4] = Limb28::from_checked_i64(scarry) & MASK;
+        self[4] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[5], 0xfffffff);
-        self[5] = Limb28::from_checked_i64(scarry) & MASK;
+        self[5] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[6], 0xfffffff);
-        self[6] = Limb28::from_checked_i64(scarry) & MASK;
+        self[6] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[7], 0xfffffff);
-        self[7] = Limb28::from_checked_i64(scarry) & MASK;
+        self[7] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[8], 0xffffffe);
-        self[8] = Limb28::from_checked_i64(scarry) & MASK;
+        self[8] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[9], 0xfffffff);
-        self[9] = Limb28::from_checked_i64(scarry) & MASK;
+        self[9] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[10], 0xfffffff);
-        self[10] = Limb28::from_checked_i64(scarry) & MASK;
+        self[10] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[11], 0xfffffff);
-        self[11] = Limb28::from_checked_i64(scarry) & MASK;
+        self[11] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[12], 0xfffffff);
-        self[12] = Limb28::from_checked_i64(scarry) & MASK;
+        self[12] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[13], 0xfffffff);
-        self[13] = Limb28::from_checked_i64(scarry) & MASK;
+        self[13] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[14], 0xfffffff);
-        self[14] = Limb28::from_checked_i64(scarry) & MASK;
+        self[14] = (scarry as u32) & MASK;
         scarry >>= 28;
-
         scarry += sub_carry(self[15], 0xfffffff);
-        self[15] = Limb28::from_checked_i64(scarry) & MASK;
+        self[15] = (scarry as u32) & MASK;
         scarry >>= 28;
 
         // There are two cases to consider; either the value was >= p or it was <less than> p
@@ -234,67 +207,52 @@ impl Fq {
         let m = scarry_mask as u64;
 
         carry += add_carry(self[0], m);
-        self[0] = Limb28::from_checked_u64(carry) & MASK;
+        self[0] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[1], m);
-        self[1] = Limb28::from_checked_u64(carry) & MASK;
+        self[1] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[2], m);
-        self[2] = Limb28::from_checked_u64(carry) & MASK;
+        self[2] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[3], m);
-        self[3] = Limb28::from_checked_u64(carry) & MASK;
+        self[3] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[4], m);
-        self[4] = Limb28::from_checked_u64(carry) & MASK;
+        self[4] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[5], m);
-        self[5] = Limb28::from_checked_u64(carry) & MASK;
+        self[5] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[6], m);
-        self[6] = Limb28::from_checked_u64(carry) & MASK;
+        self[6] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[7], m);
-        self[7] = Limb28::from_checked_u64(carry) & MASK;
+        self[7] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[8], m & 0xfffffffffffffffe);
-        self[8] = Limb28::from_checked_u64(carry) & MASK;
+        self[8] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[9], m);
-        self[9] = Limb28::from_checked_u64(carry) & MASK;
+        self[9] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[10], m);
-        self[10] = Limb28::from_checked_u64(carry) & MASK;
+        self[10] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[11], m);
-        self[11] = Limb28::from_checked_u64(carry) & MASK;
+        self[11] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[12], m);
-        self[12] = Limb28::from_checked_u64(carry) & MASK;
+        self[12] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[13], m);
-        self[13] = Limb28::from_checked_u64(carry) & MASK;
+        self[13] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[14], m);
-        self[14] = Limb28::from_checked_u64(carry) & MASK;
+        self[14] = (carry as u32) & MASK;
         carry >>= 28;
-
         carry += add_carry(self[15], m);
-        self[15] = Limb28::from_checked_u64(carry) & MASK;
+        self[15] = (carry as u32) & MASK;
 
         // This last shift is only needed for the asserts that follow
         carry >>= 28;
@@ -350,33 +308,34 @@ impl Fq {
         result[15] = self[15] - rhs[15];
         result
     }
-    // Temporary equal function, ideally would like to avoid cloning
-    // But it is need when we reduce the elements
+
     fn equals(&self, rhs: &Fq) -> bool {
+        // Subtract self from rhs
+        let mut difference = self.sub_no_reduce(rhs);
+        difference.bias(2);
+        difference.strong_reduce();
+
         let mut r = 0u32;
-        let mut x = self.clone();
-        x.strong_reduce();
-        let mut y = rhs.clone();
-        y.strong_reduce();
 
-        r |= x[0] ^ y[0];
-        r |= x[1] ^ y[1];
-        r |= x[2] ^ y[2];
-        r |= x[3] ^ y[3];
-        r |= x[4] ^ y[4];
-        r |= x[5] ^ y[5];
-        r |= x[6] ^ y[6];
-        r |= x[7] ^ y[7];
-        r |= x[8] ^ y[8];
-        r |= x[9] ^ y[9];
-        r |= x[10] ^ y[10];
-        r |= x[11] ^ y[11];
-        r |= x[12] ^ y[12];
-        r |= x[13] ^ y[13];
-        r |= x[14] ^ y[14];
-        r |= x[15] ^ y[15];
-
-        r == 0
+        r |= difference[0];
+        r |= difference[1];
+        r |= difference[2];
+        r |= difference[3];
+        r |= difference[4];
+        r |= difference[5];
+        r |= difference[6];
+        r |= difference[7];
+        r |= difference[8];
+        r |= difference[9];
+        r |= difference[10];
+        r |= difference[11];
+        r |= difference[12];
+        r |= difference[13];
+        r |= difference[14];
+        dbg!(r);
+        let ok = word_is_zero(r);
+        dbg!(ok);
+        ok
     }
 
     // Currently this does not check if the encoding is canonical (ie if the Field number is reduced)
@@ -400,8 +359,8 @@ impl Fq {
             // Load i'th 56 bytes
             let out = load7(&bytes[i + 7..]);
             // Process two 28-bit limbs
-            res[2 * i] = Limb28::from_checked_u64(out & MASK);
-            res[2 * i + 1] = Limb28::from_checked_u64(out >> 28);
+            res[2 * i] = (out & MASK) as u32;
+            res[2 * i + 1] = (out >> 28) as u32;
         }
 
         res
@@ -416,7 +375,7 @@ impl Fq {
         let mut res = [0u8; 56];
 
         for i in 0..8 {
-            let mut l = (limbs[2 * i].0 as u64) + ((limbs[2 * i + 1].0 as u64) << 28);
+            let mut l = (limbs[2 * i] as u64) + ((limbs[2 * i + 1] as u64) << 28);
 
             for j in 0..7 {
                 res[7 * i + j] = l as u8;
@@ -425,6 +384,11 @@ impl Fq {
         }
         res
     }
+}
+
+fn word_is_zero(word: u32) -> bool {
+    // If the word is zero, then when we minus 1, we should get 0xffffffff
+    word.wrapping_sub(1) == 0xffffffff
 }
 
 #[test]
@@ -437,7 +401,7 @@ fn test_add() {
 #[test]
 fn test_bias() {
     let mut a = Fq::from(5u8);
-    a.bias(Limb28::from(16u32));
+    a.bias(2);
     let b = Fq::from(5u8);
     assert!(a.equals(&b));
 }
@@ -446,7 +410,7 @@ fn test_bias() {
 #[should_panic]
 fn test_bias_more_than_headroom() {
     let mut a = Fq::from(5u8);
-    a.bias(Limb28::from(17u32));
+    a.bias(17);
 }
 
 #[test]
@@ -454,27 +418,13 @@ fn test_sub() {
     let x = Fq::from(255u8);
     let y = Fq::from(255u8);
     let MODULUS = Fq([
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xffffffe),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
-        Limb28::from(0xfffffff),
+        0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff,
+        0xffffffe, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff,
     ]);
     // First subtract without reducing
     let mut z = x.sub_no_reduce(&y);
     // Then bias z by 2
-    z.bias(Limb28::from(2));
+    z.bias(2);
     // Then clear high bits
     z.weak_reduce();
 
@@ -486,5 +436,14 @@ fn test_bytes_function() {
     let bytes = [1; 56];
     let a = Fq::from_bytes(&bytes);
     let new_a = Fq::from_bytes(&a.to_bytes());
+    dbg!(new_a);
+    dbg!(a);
     assert!(a.equals(&new_a));
+}
+
+#[test]
+fn test_equals() {
+    let a = Fq::from(5u32);
+    let b = Fq::from(5u32);
+    a.equals(&b);
 }
