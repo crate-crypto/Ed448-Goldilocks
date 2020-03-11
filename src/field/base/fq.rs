@@ -435,11 +435,18 @@ fn test_add() {
     assert!(b.equals(&c));
 }
 #[test]
-fn test_add_bias() {
+fn test_bias() {
     let mut a = Fq::from(5u8);
     a.bias(Limb28::from(16u32));
     let b = Fq::from(5u8);
     assert!(a.equals(&b));
+}
+
+#[test]
+#[should_panic]
+fn test_bias_more_than_headroom() {
+    let mut a = Fq::from(5u8);
+    a.bias(Limb28::from(17u32));
 }
 
 #[test]
