@@ -332,10 +332,8 @@ impl Fq {
         r |= difference[12];
         r |= difference[13];
         r |= difference[14];
-        dbg!(r);
-        let ok = word_is_zero(r);
-        dbg!(ok);
-        ok
+
+        word_is_zero(r)
     }
 
     // Currently this does not check if the encoding is canonical (ie if the Field number is reduced)
@@ -436,14 +434,5 @@ fn test_bytes_function() {
     let bytes = [1; 56];
     let a = Fq::from_bytes(&bytes);
     let new_a = Fq::from_bytes(&a.to_bytes());
-    dbg!(new_a);
-    dbg!(a);
     assert!(a.equals(&new_a));
-}
-
-#[test]
-fn test_equals() {
-    let a = Fq::from(5u32);
-    let b = Fq::from(5u32);
-    a.equals(&b);
 }
