@@ -1,5 +1,5 @@
 use super::constants::NUM_LIMBS;
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Index, IndexMut, Mul, Sub};
 /// This is the scalar field
 /// size = 4q = 2^446 - 0x8335dc163bb124b65129c96fde933d8d723a70aadc873d6d54a7bb0d
 /// We can therefore use 14 saturated 32-bit limbs
@@ -20,6 +20,18 @@ const R2: Scalar = Scalar([
 impl From<u32> for Scalar {
     fn from(a: u32) -> Scalar {
         Scalar([a, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    }
+}
+
+impl Index<usize> for Scalar {
+    type Output = u32;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+impl IndexMut<usize> for Scalar {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.0[index]
     }
 }
 
@@ -63,19 +75,19 @@ impl Scalar {
     pub fn halve(&self) -> Self {
         let mut result = Scalar::zero();
 
-        let mask = -((self.0[0] & 1) as i64);
+        let mask = -((self[0] & 1) as i64);
         let mut chain = 0u64;
 
         for i in 0..14 {
-            chain += (self.0[i] as u64) + ((MODULUS.0[i] as i64 & mask) as u64);
-            result.0[i] = chain as u32;
+            chain += (self[i] as u64) + ((MODULUS[i] as i64 & mask) as u64);
+            result[i] = chain as u32;
             chain >>= 32
         }
 
         for i in 0..13 {
-            result.0[i] = (result.0[i] >> 1) | (result.0[i] << 31);
+            result[i] = (result[i] >> 1) | (result[i] << 31);
         }
-        result.0[13] = (result.0[13] >> 1) | ((chain << 31) as u32);
+        result[13] = (result[13] >> 1) | ((chain << 31) as u32);
         result
     }
 }
@@ -89,9 +101,9 @@ pub fn add(a: &Scalar, b: &Scalar) -> Scalar {
     // a + b
     let mut chain = 0u64;
     for i in 0..14 {
-        chain += (a.0[i] as u64) + (b.0[i] as u64);
+        chain += (a[i] as u64) + (b[i] as u64);
         // Low 32 bits are the results
-        result.0[i] = chain as u32;
+        result[i] = chain as u32;
         // 33rd bit is the carry
         chain >>= 32;
     }
@@ -108,9 +120,9 @@ fn sub_extra(a: &Scalar, b: &Scalar, carry: u32) -> Scalar {
     // a - b
     let mut chain = 0i64;
     for i in 0..14 {
-        chain += a.0[i] as i64 - b.0[i] as i64;
+        chain += a[i] as i64 - b[i] as i64;
         // Low 32 bits are the results
-        result.0[i] = chain as u32;
+        result[i] = chain as u32;
         // 33rd bit is the borrow
         chain >>= 32
     }
@@ -125,9 +137,9 @@ fn sub_extra(a: &Scalar, b: &Scalar, carry: u32) -> Scalar {
 
     chain = 0i64;
     for i in 0..14 {
-        chain += (result.0[i] as i64) + ((MODULUS.0[i] as i64) & borrow);
+        chain += (result[i] as i64) + ((MODULUS[i] as i64) & borrow);
         // Low 32 bits are the results
-        result.0[i] = chain as u32;
+        result[i] = chain as u32;
         // 33rd bit is the carry
         chain >>= 32;
     }
@@ -147,24 +159,24 @@ fn montgomery_multiply(x: &Scalar, y: &Scalar) -> Scalar {
     for i in 0..14 {
         let mut chain = 0u64;
         for j in 0..14 {
-            chain += mul_add(x.0[i], y.0[j], result.0[j]);
-            result.0[j] = chain as u32;
+            chain += mul_add(x[i], y[j], result[j]);
+            result[j] = chain as u32;
             chain >>= 32;
         }
 
         let saved = chain as u32;
-        let multiplicand = result.0[0].wrapping_mul(MONTGOMERY_FACTOR);
+        let multiplicand = result[0].wrapping_mul(MONTGOMERY_FACTOR);
         chain = 0u64;
 
         for j in 0..14 {
-            chain += mul_add(multiplicand, MODULUS.0[j], result.0[j]);
+            chain += mul_add(multiplicand, MODULUS[j], result[j]);
             if j > 0 {
-                result.0[j - 1] = chain as u32;
+                result[j - 1] = chain as u32;
             }
             chain >>= 32;
         }
         chain += (saved as u64) + (carry as u64);
-        result.0[NUM_LIMBS - 1] = chain as u32;
+        result[NUM_LIMBS - 1] = chain as u32;
         carry = (chain >> 32) as u32;
     }
 
@@ -198,6 +210,13 @@ fn test_basic_mul() {
 fn test_basic_square() {
     let five = Scalar::from(5);
     assert_eq!(five.square(), Scalar::from(25))
+}
+
+#[test]
+fn test_sanity_check_index_mut() {
+    let mut x = Scalar::one();
+    x[0] = 2u32;
+    assert_eq!(x, Scalar::from(2))
 }
 #[test]
 fn test_basic_halving() {
