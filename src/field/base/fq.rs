@@ -1,8 +1,13 @@
 use super::karatsuba;
 use super::limb28::Limb28;
 use std::ops::{Add, Index, IndexMut, Mul};
-/// Fq is a field element defined over the Goldilocks prime
+/// Fq represents an element in the field
 /// q = 2^448 - 2^224 -1
+///
+/// Fq is represented using radix 2^28 as 16 u32s. We therefore represent
+/// a field element `x` as x_0 * 2^{28 * 0} + x_1 * 2^{28 * 1} + .... + x_15 * 2^{28 * 15}
+///
+/// XXX: Compute the wiggle room
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Fq(pub(crate) [Limb28; 16]);
 
@@ -72,6 +77,7 @@ impl Fq {
     pub(crate) fn one() -> Fq {
         Fq::from(1u8)
     }
+    /// Bias adds a multiple of `p` to self
     fn bias(&mut self, b: Limb28) {
         const MASK: u32 = (1 << 28) - 1;
 
@@ -85,14 +91,17 @@ impl Fq {
         self[1] += lo[1];
         self[2] += lo[2];
         self[3] += lo[3];
+
         self[4] += lo[0];
         self[5] += lo[1];
         self[6] += lo[2];
         self[7] += lo[3];
+
         self[8] += hi[0];
         self[9] += hi[1];
         self[10] += hi[2];
         self[11] += hi[3];
+
         self[12] += lo[0];
         self[13] += lo[1];
         self[14] += lo[2];
@@ -102,53 +111,33 @@ impl Fq {
     fn weak_reduce(&mut self) {
         const MASK: u32 = (1 << 28) - 1;
 
-        let nLimbs = 16;
-        let radix = 28;
+        let limb16_mod = self[16 - 1] >> 28;
+        self[16 / 2] += limb16_mod;
 
-        let limb16_mod = self[nLimbs - 1] >> radix;
-        self[nLimbs / 2] += limb16_mod;
-
-        self[15] = (self[15] & MASK) + (self[14] >> radix);
-        self[14] = (self[14] & MASK) + (self[13] >> radix);
-        self[13] = (self[13] & MASK) + (self[12] >> radix);
-        self[12] = (self[12] & MASK) + (self[11] >> radix);
-        self[11] = (self[11] & MASK) + (self[10] >> radix);
-        self[10] = (self[10] & MASK) + (self[9] >> radix);
-        self[9] = (self[9] & MASK) + (self[8] >> radix);
-        self[8] = (self[8] & MASK) + (self[7] >> radix);
-        self[7] = (self[7] & MASK) + (self[6] >> radix);
-        self[6] = (self[6] & MASK) + (self[5] >> radix);
-        self[5] = (self[5] & MASK) + (self[4] >> radix);
-        self[4] = (self[4] & MASK) + (self[3] >> radix);
-        self[3] = (self[3] & MASK) + (self[2] >> radix);
-        self[2] = (self[2] & MASK) + (self[1] >> radix);
-        self[1] = (self[1] & MASK) + (self[0] >> radix);
+        self[15] = (self[15] & MASK) + (self[14] >> 28);
+        self[14] = (self[14] & MASK) + (self[13] >> 28);
+        self[13] = (self[13] & MASK) + (self[12] >> 28);
+        self[12] = (self[12] & MASK) + (self[11] >> 28);
+        self[11] = (self[11] & MASK) + (self[10] >> 28);
+        self[10] = (self[10] & MASK) + (self[9] >> 28);
+        self[9] = (self[9] & MASK) + (self[8] >> 28);
+        self[8] = (self[8] & MASK) + (self[7] >> 28);
+        self[7] = (self[7] & MASK) + (self[6] >> 28);
+        self[6] = (self[6] & MASK) + (self[5] >> 28);
+        self[5] = (self[5] & MASK) + (self[4] >> 28);
+        self[4] = (self[4] & MASK) + (self[3] >> 28);
+        self[3] = (self[3] & MASK) + (self[2] >> 28);
+        self[2] = (self[2] & MASK) + (self[1] >> 28);
+        self[1] = (self[1] & MASK) + (self[0] >> 28);
 
         self[0] = (self[0] & MASK) + limb16_mod;
     }
 
     fn strong_reduce(&mut self) {
         const MASK: u32 = (1 << 28) - 1;
-        let MODULUS = Fq([
-            Limb28::from(0xffffff),
-            Limb28::from(0xffffffff),
-            Limb28::from(0xffffff),
-            Limb28::from(0xffffffff),
-            Limb28::from(0xffffff),
-            Limb28::from(0xffffffff),
-            Limb28::from(0xffffff),
-            Limb28::from(0xffffffff),
-            Limb28::from(0xfffffe),
-            Limb28::from(0xffffffff),
-            Limb28::from(0xffffff),
-            Limb28::from(0xffffffff),
-            Limb28::from(0xffffff),
-            Limb28::from(0xffffffff),
-            Limb28::from(0xffffff),
-            Limb28::from(0xffffffff),
-        ]);
 
-        // clear high
+        // After weak reducing, we know can make the guarantee that
+        // 0 < self < 2p
         self.weak_reduce();
 
         fn sub_carry(a: Limb28, b: i64) -> i64 {
@@ -160,8 +149,9 @@ impl Fq {
             x + b
         }
 
-        // total is less than 2p
-        // compute total_value - p.  No need to reduce mod p.
+        // We know that  0 <= self < 2p
+        // This next section computes self - p
+        // Our range for self would become -p <= self < p
 
         let mut scarry = 0i64;
         scarry += sub_carry(self[0], 0xfffffff);
@@ -228,15 +218,20 @@ impl Fq {
         self[15] = Limb28::from_checked_i64(scarry) & MASK;
         scarry >>= 28;
 
-        // uncommon case: it was >= p, so now scarry = 0 and this = x
-        // common case: it was < p, so now scarry = -1 and this = x - p + 2^255
-        // so let's add back in p.  will carry back off the top for 2^255.
-        // it can be asserted:
+        // There are two cases to consider; either the value was >= p or it was <less than> p
+        // Case 1:
+        // If the value was more than p, then we will not have a borrow bit, when we subtracted the modulus
+        // In this case, scarry = 0
+        // Case 2:
+        // The other case, is that our value was less than p.
+        // We will therefore have a borrow bit of - 1 signifying that our total is negative.
+
+        // if borrow is not -1 or 0, then we have a problem
         assert!(scarry == 0 || scarry + 1 == 0);
 
-        let scarryMask = (scarry as u32) & MASK;
+        let scarry_mask = (scarry as u32) & MASK;
         let mut carry = 0u64;
-        let m = scarryMask as u64;
+        let m = scarry_mask as u64;
 
         carry += add_carry(self[0], m);
         self[0] = Limb28::from_checked_u64(carry) & MASK;
@@ -301,7 +296,12 @@ impl Fq {
         carry += add_carry(self[15], m);
         self[15] = Limb28::from_checked_u64(carry) & MASK;
 
-        // assert!(carry < 2 && (carry as u32) + (scarry as u32) == 0);
+        // This last shift is only needed for the asserts that follow
+        carry >>= 28;
+        // carry can only be 1 or 0 depending on the previous borrow bit
+        assert!(carry < 2);
+        // carry + borrow should cancel out
+        assert!((carry as i64) + (scarry as i64) == 0);
     }
 
     // Adds the two field elements together
@@ -431,16 +431,47 @@ impl Fq {
 fn test_add() {
     let a = Fq::from(8u8);
     let b = a + a;
-    let mut c = Fq::from(16u8);
+    let c = Fq::from(16u8);
     assert!(b.equals(&c));
 }
 #[test]
 fn test_add_bias() {
     let mut a = Fq::from(5u8);
-    let mut b = (a + a);
-    b.bias(Limb28::from(2u32));
-    let mut c = Fq::from(10u8);
-    assert!(b.equals(&c));
+    a.bias(Limb28::from(16u32));
+    let b = Fq::from(5u8);
+    assert!(a.equals(&b));
+}
+
+#[test]
+fn test_sub() {
+    let x = Fq::from(255u8);
+    let y = Fq::from(255u8);
+    let MODULUS = Fq([
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xffffffe),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+        Limb28::from(0xfffffff),
+    ]);
+    // First subtract without reducing
+    let mut z = x.sub_no_reduce(&y);
+    // Then bias z by 2
+    z.bias(Limb28::from(2));
+    // Then clear high bits
+    z.weak_reduce();
+
+    assert!(z.equals(&MODULUS));
 }
 
 #[test]
