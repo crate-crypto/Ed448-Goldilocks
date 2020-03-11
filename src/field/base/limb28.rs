@@ -33,38 +33,49 @@ impl Limb28 {
         Limb28::from(a as u32)
     }
 }
-
 // Trait implementations
+
+/// From converts a u32 into a Limb28
+/// There is no guarantee that the value is less than 2^28
 impl From<u32> for Limb28 {
     fn from(a: u32) -> Limb28 {
         Limb28(a)
     }
 }
-
+/// Multiplying two limbs together produces a u64
+/// So that we can manipulate the carry bit
 impl Mul<Limb28> for Limb28 {
     type Output = u64;
     fn mul(self, rhs: Limb28) -> Self::Output {
         (self.0 as u64) * (rhs.0 as u64)
     }
 }
+/// Multiplying a u32 by a Limb is the same as
+/// multiplying a Limb by a Limb
 impl Mul<u32> for Limb28 {
     type Output = u64;
     fn mul(self, rhs: u32) -> Self::Output {
         self * Limb28::from(rhs)
     }
 }
+
+/// Adding two limbs produces another limb
+/// XXX: In this case, we lose the carry bit
 impl Add<Limb28> for Limb28 {
     type Output = Limb28;
     fn add(self, rhs: Limb28) -> Self::Output {
         Limb28::from(self.0 + rhs.0)
     }
 }
+/// Subtracting two limbs produces another limb]
+/// XXX: In this case, we lose the carry bit
 impl Sub<Limb28> for Limb28 {
     type Output = Limb28;
     fn sub(self, rhs: Limb28) -> Self::Output {
         Limb28::from(self.0 - rhs.0)
     }
 }
+/// Adding a u64 onto a limb produces a u64
 impl Add<u64> for Limb28 {
     type Output = u64;
     fn add(self, rhs: u64) -> Self::Output {
