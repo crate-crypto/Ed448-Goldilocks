@@ -56,7 +56,10 @@ impl Sub<Scalar> for Scalar {
         sub_extra(&self, &rhs, 0)
     }
 }
-
+fn word_is_zero(word: u32) -> bool {
+    // If the word is zero, then when we minus 1, we should get 0xffffffff
+    word.wrapping_sub(1) == 0xffffffff
+}
 impl Scalar {
     pub fn one() -> Scalar {
         Scalar::from(1)
@@ -65,10 +68,17 @@ impl Scalar {
         Scalar::from(0)
     }
     fn square(&self) -> Scalar {
-        *self * *self
+        montgomery_multiply(&self, &self)
     }
     pub fn invert(&self) -> Self {
         todo!()
+    }
+    fn equals(&self, rhs: &Scalar) -> bool {
+        let mut diff = 0u32;
+        for i in 0..14 {
+            diff |= self[i] ^ rhs[i]
+        }
+        word_is_zero(diff)
     }
     /// Halves a Scalar
     // XXX: What is expected output on odd Scalars
@@ -226,4 +236,13 @@ fn test_basic_halving() {
     assert_eq!(eight.halve(), four);
     assert_eq!(four.halve(), two);
     assert_eq!(two.halve(), Scalar::one());
+}
+
+#[test]
+fn test_equals() {
+    let a = Scalar::from(5);
+    let b = Scalar::from(5);
+    let c = Scalar::from(10);
+    assert!(a.equals(&b));
+    assert!(!a.equals(&c))
 }
