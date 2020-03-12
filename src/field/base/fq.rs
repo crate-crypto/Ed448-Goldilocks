@@ -43,6 +43,12 @@ impl Mul<Fq> for Fq {
         karatsuba::mul(&self, &rhs)
     }
 }
+impl Mul<&Fq> for Fq {
+    type Output = Fq;
+    fn mul(self, rhs: &Fq) -> Self::Output {
+        karatsuba::mul(&self, rhs)
+    }
+}
 
 impl Add<Fq> for Fq {
     type Output = Fq;
@@ -59,13 +65,69 @@ impl Fq {
     fn is_zero() -> bool {
         todo!()
     }
-    fn is_residue() -> bool {
-        todo!()
+    fn invert(&self) -> Fq {
+        let mut t1 = Fq::zero();
+
+        t1 = self.square();
+        let (mut t2, _) = t1.inverse_square_root();
+        t1 = t2.square();
+        t2 = t1 * self;
+        t2
     }
+    // TODO: Implement karatsuba square
+    fn square(&self) -> Fq {
+        karatsuba::mul(self, self)
+    }
+    // Squares self n times
+    fn square_n(&self, mut n: u32) -> Fq {
+        let mut result = Fq::zero();
+
+        result = self.square();
+        n = n - 1;
+        for _ in 0..n {
+            result = result.square();
+        }
+
+        result
+    }
+    fn inverse_square_root(&self) -> (Fq, bool) {
+        let (mut l0, mut l1, mut l2) = (Fq::zero(), Fq::zero(), Fq::zero());
+
+        l1 = self.square();
+        l2 = l1 * self;
+        l1 = l2.square();
+        l2 = l1 * self;
+        l1 = l2.square_n(3);
+        l0 = l2 * l1;
+        l1 = l0.square_n(3);
+        l0 = l2 * l1;
+        l2 = l0.square_n(9);
+        l1 = l0 * l2;
+        l0 = l1 * l1;
+        l2 = l0 * self;
+        l0 = l2.square_n(18);
+        l2 = l1 * l0;
+        l0 = l2.square_n(37);
+        l1 = l2 * l0;
+        l0 = l1.square_n(37);
+        l1 = l2 * l0;
+        l0 = l1.square_n(111);
+        l2 = l1 * l0;
+        l0 = l2.square();
+        l1 = l0 * self;
+        l0 = l1.square_n(223);
+        l1 = l2 * l0;
+        l2 = l1.square();
+        l0 = l2 * self;
+
+        let is_residue = l0.equals(&Fq::one());
+        (l1, is_residue)
+    }
+
     pub(crate) fn one() -> Fq {
         Fq::from(1u8)
     }
-    /// Bias adds a multiple of `p` to self
+    /// Bias adds 'b' multiples of `p` to self
     fn bias(&mut self, b: u32) {
         const MASK: u32 = (1 << 28) - 1;
 
@@ -75,25 +137,25 @@ impl Fq {
         let lo = [co1; 4];
         let hi = [co2, co1, co1, co1];
 
-        self[0] += lo[0];
-        self[1] += lo[1];
-        self[2] += lo[2];
-        self[3] += lo[3];
+        self[0] = self[0].wrapping_add(lo[0]);
+        self[1] = self[1].wrapping_add(lo[1]);
+        self[2] = self[2].wrapping_add(lo[2]);
+        self[3] = self[3].wrapping_add(lo[3]);
 
-        self[4] += lo[0];
-        self[5] += lo[1];
-        self[6] += lo[2];
-        self[7] += lo[3];
+        self[4] = self[4].wrapping_add(lo[0]);
+        self[5] = self[5].wrapping_add(lo[1]);
+        self[6] = self[6].wrapping_add(lo[2]);
+        self[7] = self[7].wrapping_add(lo[3]);
 
-        self[8] += hi[0];
-        self[9] += hi[1];
-        self[10] += hi[2];
-        self[11] += hi[3];
+        self[8] = self[8].wrapping_add(hi[0]);
+        self[9] = self[9].wrapping_add(hi[1]);
+        self[10] = self[10].wrapping_add(hi[2]);
+        self[11] = self[11].wrapping_add(hi[3]);
 
-        self[12] += lo[0];
-        self[13] += lo[1];
-        self[14] += lo[2];
-        self[15] += lo[3];
+        self[12] = self[12].wrapping_add(lo[0]);
+        self[13] = self[13].wrapping_add(lo[1]);
+        self[14] = self[14].wrapping_add(lo[2]);
+        self[15] = self[15].wrapping_add(lo[3]);
     }
 
     fn weak_reduce(&mut self) {
@@ -290,22 +352,22 @@ impl Fq {
     // Result is not reduced
     fn sub_no_reduce(&self, rhs: &Fq) -> Fq {
         let mut result = Fq::zero();
-        result[0] = self[0] - rhs[0];
-        result[1] = self[1] - rhs[1];
-        result[2] = self[2] - rhs[2];
-        result[3] = self[3] - rhs[3];
-        result[4] = self[4] - rhs[4];
-        result[5] = self[5] - rhs[5];
-        result[6] = self[6] - rhs[6];
-        result[7] = self[7] - rhs[7];
-        result[8] = self[8] - rhs[8];
-        result[9] = self[9] - rhs[9];
-        result[10] = self[10] - rhs[10];
-        result[11] = self[11] - rhs[11];
-        result[12] = self[12] - rhs[12];
-        result[13] = self[13] - rhs[13];
-        result[14] = self[14] - rhs[14];
-        result[15] = self[15] - rhs[15];
+        result[0] = self[0].wrapping_sub(rhs[0]);
+        result[1] = self[1].wrapping_sub(rhs[1]);
+        result[2] = self[2].wrapping_sub(rhs[2]);
+        result[3] = self[3].wrapping_sub(rhs[3]);
+        result[4] = self[4].wrapping_sub(rhs[4]);
+        result[5] = self[5].wrapping_sub(rhs[5]);
+        result[6] = self[6].wrapping_sub(rhs[6]);
+        result[7] = self[7].wrapping_sub(rhs[7]);
+        result[8] = self[8].wrapping_sub(rhs[8]);
+        result[9] = self[9].wrapping_sub(rhs[9]);
+        result[10] = self[10].wrapping_sub(rhs[10]);
+        result[11] = self[11].wrapping_sub(rhs[11]);
+        result[12] = self[12].wrapping_sub(rhs[12]);
+        result[13] = self[13].wrapping_sub(rhs[13]);
+        result[14] = self[14].wrapping_sub(rhs[14]);
+        result[15] = self[15].wrapping_sub(rhs[15]);
         result
     }
 
@@ -351,13 +413,13 @@ impl Fq {
                 | ((input[6] as u64) << 48)
         };
 
-        const MASK: u64 = (1 << 28) - 1;
+        const MASK: u32 = (1 << 28) - 1;
         let mut res = Fq::zero();
         for i in 0..8 {
             // Load i'th 56 bytes
-            let out = load7(&bytes[i + 7..]);
+            let out = load7(&bytes[i * 7..]);
             // Process two 28-bit limbs
-            res[2 * i] = (out & MASK) as u32;
+            res[2 * i] = (out as u32) & MASK;
             res[2 * i + 1] = (out >> 28) as u32;
         }
 
@@ -435,4 +497,49 @@ fn test_bytes_function() {
     let a = Fq::from_bytes(&bytes);
     let new_a = Fq::from_bytes(&a.to_bytes());
     assert!(a.equals(&new_a));
+}
+
+#[test]
+fn test_isr() {
+    let bytes: [u8; 56] = [
+        0x9f, 0x93, 0xed, 0x0a, 0x84, 0xde, 0xf0, 0xc7, 0xa0, 0x4b, 0x3f, 0x03, 0x70, 0xc1, 0x96,
+        0x3d, 0xc6, 0x94, 0x2d, 0x93, 0xf3, 0xaa, 0x7e, 0x14, 0x96, 0xfa, 0xec, 0x9c, 0x70, 0xd0,
+        0x59, 0x3c, 0x5c, 0x06, 0x5f, 0x24, 0x33, 0xf7, 0xad, 0x26, 0x6a, 0x3a, 0x45, 0x98, 0x60,
+        0xf4, 0xaf, 0x4f, 0x1b, 0xff, 0x92, 0x26, 0xea, 0xa0, 0x7e, 0x29,
+    ];
+    let a = Fq::from_bytes(&bytes);
+    let (k, _) = a.inverse_square_root();
+    let should_be: [u8; 56] = [
+        0x2, 0x4f, 0xc6, 0xd1, 0x17, 0x97, 0x83, 0x70, 0xb1, 0x1d, 0xf0, 0x72, 0xee, 0x70, 0x7e,
+        0xbf, 0xd0, 0xdf, 0x77, 0xa6, 0x32, 0x28, 0x6f, 0xc6, 0xab, 0xc4, 0x99, 0xb6, 0xc2, 0x9d,
+        0xee, 0x6d, 0xe5, 0x76, 0x90, 0xa0, 0x3, 0x82, 0x26, 0x6, 0x34, 0x4a, 0x2a, 0xb0, 0x47,
+        0x42, 0xdf, 0x2f, 0x5, 0xbe, 0x4b, 0xa3, 0x13, 0x7d, 0x2, 0x4,
+    ];
+
+    for i in 0..56 {
+        assert_eq!(should_be[i], k.to_bytes()[i])
+    }
+}
+
+#[test]
+fn test_square_n() {
+    let bytes: [u8; 56] = [
+        0x9f, 0x93, 0xed, 0x0a, 0x84, 0xde, 0xf0, 0xc7, 0xa0, 0x4b, 0x3f, 0x03, 0x70, 0xc1, 0x96,
+        0x3d, 0xc6, 0x94, 0x2d, 0x93, 0xf3, 0xaa, 0x7e, 0x14, 0x96, 0xfa, 0xec, 0x9c, 0x70, 0xd0,
+        0x59, 0x3c, 0x5c, 0x06, 0x5f, 0x24, 0x33, 0xf7, 0xad, 0x26, 0x6a, 0x3a, 0x45, 0x98, 0x60,
+        0xf4, 0xaf, 0x4f, 0x1b, 0xff, 0x92, 0x26, 0xea, 0xa0, 0x7e, 0x29,
+    ];
+    let x = Fq::from_bytes(&bytes);
+    let y = x.square_n(200);
+
+    let should_be: [u8; 56] = [
+        0x75, 0x3e, 0x43, 0xee, 0xb7, 0xc3, 0x1a, 0x28, 0x50, 0x7f, 0xc4, 0x3, 0xe4, 0xba, 0x79,
+        0x3a, 0xeb, 0x3b, 0x7f, 0xb3, 0xfc, 0x62, 0xc1, 0x97, 0x1d, 0xec, 0x4b, 0x91, 0x30, 0x98,
+        0xa8, 0xe0, 0xa5, 0xca, 0xed, 0xbb, 0x24, 0x79, 0x16, 0x2, 0xeb, 0xa6, 0xb1, 0x8c, 0xcc,
+        0x96, 0x70, 0xe2, 0x78, 0xf1, 0xef, 0xf5, 0x56, 0x4b, 0x31, 0x6e,
+    ];
+
+    for i in 0..56 {
+        assert_eq!(should_be[i], y.to_bytes()[i])
+    }
 }
