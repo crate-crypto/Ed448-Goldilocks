@@ -189,76 +189,79 @@ fn montgomery_multiply(x: &Scalar, y: &Scalar) -> Scalar {
 
     sub_extra(&result, &MODULUS, carry)
 }
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_basic_add() {
+        let five = Scalar::from(5);
+        let six = Scalar::from(6);
 
-#[test]
-fn test_basic_add() {
-    let five = Scalar::from(5);
-    let six = Scalar::from(6);
+        assert_eq!(five + six, Scalar::from(11))
+    }
 
-    assert_eq!(five + six, Scalar::from(11))
-}
+    #[test]
+    fn test_basic_sub() {
+        let ten = Scalar::from(10);
+        let five = Scalar::from(5);
+        assert_eq!(ten - five, Scalar::from(5))
+    }
 
-#[test]
-fn test_basic_sub() {
-    let ten = Scalar::from(10);
-    let five = Scalar::from(5);
-    assert_eq!(ten - five, Scalar::from(5))
-}
+    #[test]
+    fn test_basic_mul() {
+        let ten = Scalar::from(10);
+        let five = Scalar::from(5);
 
-#[test]
-fn test_basic_mul() {
-    let ten = Scalar::from(10);
-    let five = Scalar::from(5);
+        assert_eq!(ten * five, Scalar::from(50))
+    }
 
-    assert_eq!(ten * five, Scalar::from(50))
-}
+    #[test]
+    fn test_mul() {
+        let a = Scalar([
+            0xffb823a3, 0xc96a3c35, 0x7f8ed27d, 0x087b8fb9, 0x1d9ac30a, 0x74d65764, 0xc0be082e,
+            0xa8cb0ae8, 0xa8fa552b, 0x2aae8688, 0x2c3dc273, 0x47cf8cac, 0x3b089f07, 0x1e63e807,
+        ]);
 
-#[test]
-fn test_mul() {
-    let a = Scalar([
-        0xffb823a3, 0xc96a3c35, 0x7f8ed27d, 0x087b8fb9, 0x1d9ac30a, 0x74d65764, 0xc0be082e,
-        0xa8cb0ae8, 0xa8fa552b, 0x2aae8688, 0x2c3dc273, 0x47cf8cac, 0x3b089f07, 0x1e63e807,
-    ]);
+        let b = Scalar([
+            0xd8bedc42, 0x686eb329, 0xe416b899, 0x17aa6d9b, 0x1e30b38b, 0x188c6b1a, 0xd099595b,
+            0xbc343bcb, 0x1adaa0e7, 0x24e8d499, 0x8e59b308, 0x0a92de2d, 0xcae1cb68, 0x16c5450a,
+        ]);
 
-    let b = Scalar([
-        0xd8bedc42, 0x686eb329, 0xe416b899, 0x17aa6d9b, 0x1e30b38b, 0x188c6b1a, 0xd099595b,
-        0xbc343bcb, 0x1adaa0e7, 0x24e8d499, 0x8e59b308, 0x0a92de2d, 0xcae1cb68, 0x16c5450a,
-    ]);
+        let exp = Scalar([
+            0xa18d010a, 0x1f5b3197, 0x994c9c2b, 0x6abd26f5, 0x08a3a0e4, 0x36a14920, 0x74e9335f,
+            0x07bcd931, 0xf2d89c1e, 0xb9036ff6, 0x203d424b, 0xfccd61b3, 0x4ca389ed, 0x31e055c1,
+        ]);
 
-    let exp = Scalar([
-        0xa18d010a, 0x1f5b3197, 0x994c9c2b, 0x6abd26f5, 0x08a3a0e4, 0x36a14920, 0x74e9335f,
-        0x07bcd931, 0xf2d89c1e, 0xb9036ff6, 0x203d424b, 0xfccd61b3, 0x4ca389ed, 0x31e055c1,
-    ]);
+        assert_eq!(a * b, exp)
+    }
+    #[test]
+    fn test_basic_square() {
+        let five = Scalar::from(5);
+        assert_eq!(five.square(), Scalar::from(25))
+    }
 
-    assert_eq!(a * b, exp)
-}
-#[test]
-fn test_basic_square() {
-    let five = Scalar::from(5);
-    assert_eq!(five.square(), Scalar::from(25))
-}
+    #[test]
+    fn test_sanity_check_index_mut() {
+        let mut x = Scalar::one();
+        x[0] = 2u32;
+        assert_eq!(x, Scalar::from(2))
+    }
+    #[test]
+    fn test_basic_halving() {
+        let eight = Scalar::from(8);
+        let four = Scalar::from(4);
+        let two = Scalar::from(2);
+        assert_eq!(eight.halve(), four);
+        assert_eq!(four.halve(), two);
+        assert_eq!(two.halve(), Scalar::one());
+    }
 
-#[test]
-fn test_sanity_check_index_mut() {
-    let mut x = Scalar::one();
-    x[0] = 2u32;
-    assert_eq!(x, Scalar::from(2))
-}
-#[test]
-fn test_basic_halving() {
-    let eight = Scalar::from(8);
-    let four = Scalar::from(4);
-    let two = Scalar::from(2);
-    assert_eq!(eight.halve(), four);
-    assert_eq!(four.halve(), two);
-    assert_eq!(two.halve(), Scalar::one());
-}
-
-#[test]
-fn test_equals() {
-    let a = Scalar::from(5);
-    let b = Scalar::from(5);
-    let c = Scalar::from(10);
-    assert!(a.equals(&b));
-    assert!(!a.equals(&c))
+    #[test]
+    fn test_equals() {
+        let a = Scalar::from(5);
+        let b = Scalar::from(5);
+        let c = Scalar::from(10);
+        assert!(a.equals(&b));
+        assert!(!a.equals(&c))
+    }
 }
