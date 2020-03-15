@@ -1,10 +1,7 @@
-use super::constants::NUM_LIMBS;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 /// This is the scalar field
 /// size = 4q = 2^446 - 0x8335dc163bb124b65129c96fde933d8d723a70aadc873d6d54a7bb0d
 /// We can therefore use 14 saturated 32-bit limbs
-/// in LE format
-
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Scalar([u32; 14]);
 
@@ -186,7 +183,7 @@ fn montgomery_multiply(x: &Scalar, y: &Scalar) -> Scalar {
             chain >>= 32;
         }
         chain += (saved as u64) + (carry as u64);
-        result[NUM_LIMBS - 1] = chain as u32;
+        result[14 - 1] = chain as u32;
         carry = (chain >> 32) as u32;
     }
 
