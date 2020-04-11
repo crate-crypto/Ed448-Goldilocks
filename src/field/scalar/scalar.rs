@@ -300,8 +300,16 @@ mod test {
     }
     #[test]
     fn test_basic_square() {
-        let five = Scalar::from(5);
-        assert_eq!(five.square(), Scalar::from(25))
+        let a = Scalar([
+            0xcf5fac3d, 0x7e56a34b, 0xf640922b, 0x3fa50692, 0x1370f8b8, 0x6f08f331, 0x8dccc486,
+            0x4bb395e0, 0xf22c6951, 0x21cc3078, 0xd2391f9d, 0x930392e5, 0x04b3273b, 0x31620816,
+        ]);
+        let expected_a_squared = Scalar([
+            0x15598f62, 0xb9b1ed71, 0x52fcd042, 0x862a9f10, 0x1e8a309f, 0x9988f8e0, 0xa22347d7,
+            0xe9ab2c22, 0x38363f74, 0xfd7c58aa, 0xc49a1433, 0xd9a6c4c3, 0x75d3395e, 0x0d79f6e3,
+        ]);
+
+        assert_eq!(a.square(), expected_a_squared)
     }
 
     #[test]
