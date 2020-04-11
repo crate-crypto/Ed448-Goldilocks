@@ -66,9 +66,7 @@ impl Fq {
         todo!()
     }
     fn invert(&self) -> Fq {
-        let mut t1 = Fq::zero();
-
-        t1 = self.square();
+        let mut t1 = self.square();
         let (mut t2, _) = t1.inverse_square_root();
         t1 = t2.square();
         t2 = t1 * self;
@@ -80,9 +78,7 @@ impl Fq {
     }
     // Squares self n times
     fn square_n(&self, mut n: u32) -> Fq {
-        let mut result = Fq::zero();
-
-        result = self.square();
+        let mut result = self.square();
         n = n - 1;
         for _ in 0..n {
             result = result.square();
