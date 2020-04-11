@@ -68,7 +68,71 @@ impl Scalar {
         montgomery_multiply(&self, &self)
     }
     pub fn invert(&self) -> Self {
-        todo!()
+        let mut pre_comp: Vec<Scalar> = vec![Scalar::zero(); 8];
+        let mut result = Scalar::zero();
+
+        let scalar_window_bits = 3;
+        let last = (1 << scalar_window_bits) - 1;
+
+        // precompute [a^1, a^3,,..]
+        pre_comp[0] = montgomery_multiply(self, &R2);
+
+        if last > 0 {
+            pre_comp[last] = montgomery_multiply(&pre_comp[0], &pre_comp[0]);
+        }
+
+        for i in 1..=last {
+            pre_comp[i] = montgomery_multiply(&pre_comp[i - 1], &pre_comp[last])
+        }
+
+        // Sliding window
+        let mut residue: usize = 0;
+        let mut trailing: usize = 0;
+        let mut started: usize = 0;
+
+        // XXX: This can definitely be refactored to be readable
+        let loop_start = -scalar_window_bits as isize;
+        let loop_end = 446 - 1;
+        for i in (loop_start..=loop_end).rev() {
+            if started != 0 {
+                result = result.square()
+            }
+
+            let mut w: u32;
+            if i >= 0 {
+                w = MODULUS[(i / 32) as usize];
+            } else {
+                w = 0;
+            }
+
+            if i >= 0 && i < 32 {
+                w -= 2
+            }
+
+            residue = (((residue as u32) << 1) | ((w >> ((i as u32) % 32)) & 1)) as usize;
+            if residue >> scalar_window_bits != 0 {
+                trailing = residue;
+                residue = 0
+            }
+
+            if trailing > 0 && (trailing & ((1 << scalar_window_bits) - 1)) == 0 {
+                if started != 0 {
+                    result = montgomery_multiply(
+                        &result,
+                        &pre_comp[trailing >> (scalar_window_bits + 1)],
+                    )
+                } else {
+                    result = pre_comp[trailing >> (scalar_window_bits + 1)];
+                    started = 1
+                }
+                trailing = 0
+            }
+            trailing <<= 1
+        }
+
+        // de-montgomerize and return result
+
+        montgomery_multiply(&result, &Scalar::one())
     }
     fn equals(&self, rhs: &Scalar) -> bool {
         let mut diff = 0u32;
@@ -263,5 +327,25 @@ mod test {
         let c = Scalar::from(10);
         assert!(a.equals(&b));
         assert!(!a.equals(&c))
+    }
+
+    #[test]
+    fn test_basic_inversion() {
+        // Inversion of one is one
+        let one = Scalar::from(1);
+        let expected_one = one.invert();
+        assert_eq!(expected_one, one);
+
+        // Test inversion from 2 to 100
+        for i in 2..=100 {
+            let x = Scalar::from(i);
+            let x_inv = x.invert();
+            assert_eq!(x_inv * x, Scalar::one())
+        }
+
+        // Inversion of zero is zero
+        let zero = Scalar::zero();
+        let expected_zero = zero.invert();
+        assert_eq!(expected_zero, zero)
     }
 }
