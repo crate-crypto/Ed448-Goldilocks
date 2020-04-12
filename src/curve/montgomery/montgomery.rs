@@ -14,33 +14,26 @@ impl Montgomery {
     /// Montgomery Step
     pub fn step(&mut self) {
         let mut l0 = self.zd.add_no_reduce(&self.xd);
-        let mut l1 = sub(&self.xd, &self.zd);
-        self.zd = sub(&self.xa, &self.za);
+        let mut l1 = self.xd - self.zd;
+        self.zd = self.xa - self.za;
         self.xd = l0 * self.zd;
         self.zd = self.za.add_no_reduce(&self.xa);
         self.za = l1 * self.zd;
         self.xa = self.za.add_no_reduce(&self.xd);
         self.zd = self.xa.square();
         self.xa = self.z0 * self.zd;
-        self.zd = sub(&self.xd, &self.za);
+        self.zd = self.xd - self.za;
         self.za = self.zd.square();
         self.xd = l0.square();
         l0 = l1.square();
         self.zd = self.xd * ONE_MINUS_D;
-        l1 = sub(&self.xd, &l0);
+        l1 = self.xd - l0;
         self.xd = l0 * self.zd;
         l0 = self.zd.sub_no_reduce(&l1);
         l0.bias(2);
         l0.weak_reduce();
         self.zd = l0 * l1;
     }
-}
-
-fn sub(x: &Fq, y: &Fq) -> Fq {
-    let mut a = x.sub_no_reduce(y);
-    a.bias(2);
-    a.weak_reduce();
-    a
 }
 
 #[cfg(test)]
