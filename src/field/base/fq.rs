@@ -1,5 +1,5 @@
 use super::karatsuba;
-use std::ops::{Add, Index, IndexMut, Mul};
+use std::ops::{Add, Index, IndexMut, Mul, Sub};
 /// Fq represents an element in the field
 /// q = 2^448 - 2^224 -1
 ///
@@ -58,6 +58,15 @@ impl Add<Fq> for Fq {
         inter_res
     }
 }
+impl Sub<Fq> for Fq {
+    type Output = Fq;
+    fn sub(self, rhs: Fq) -> Self::Output {
+        let mut inter_res = self.sub_no_reduce(&rhs);
+        inter_res.bias(2);
+        inter_res.weak_reduce();
+        inter_res
+    }
+}
 impl Fq {
     pub(crate) fn zero() -> Fq {
         Fq::from(0u8)
@@ -73,7 +82,7 @@ impl Fq {
         t2
     }
     // TODO: Implement karatsuba square
-    fn square(&self) -> Fq {
+    pub(crate) fn square(&self) -> Fq {
         karatsuba::mul(self, self)
     }
     // Squares self n times
@@ -123,8 +132,12 @@ impl Fq {
     pub(crate) fn one() -> Fq {
         Fq::from(1u8)
     }
+
+    pub(crate) fn negate(&self) -> Fq {
+        Fq::zero() - *self
+    }
     /// Bias adds 'b' multiples of `p` to self
-    fn bias(&mut self, b: u32) {
+    pub(crate) fn bias(&mut self, b: u32) {
         const MASK: u32 = (1 << 28) - 1;
 
         let co1 = b * MASK;
@@ -154,7 +167,7 @@ impl Fq {
         self[15] = self[15].wrapping_add(lo[3]);
     }
 
-    fn weak_reduce(&mut self) {
+    pub(crate) fn weak_reduce(&mut self) {
         const MASK: u32 = (1 << 28) - 1;
 
         let limb16_mod = self[16 - 1] >> 28;
@@ -322,7 +335,7 @@ impl Fq {
 
     // Adds the two field elements together
     // Result is not reduced
-    fn add_no_reduce(&self, rhs: &Fq) -> Fq {
+    pub(crate) fn add_no_reduce(&self, rhs: &Fq) -> Fq {
         let mut result = Fq::zero();
 
         result[0] = self[0] + rhs[0];
@@ -346,7 +359,7 @@ impl Fq {
     }
     // Subtracts the two field elements from each other
     // Result is not reduced
-    fn sub_no_reduce(&self, rhs: &Fq) -> Fq {
+    pub(crate) fn sub_no_reduce(&self, rhs: &Fq) -> Fq {
         let mut result = Fq::zero();
         result[0] = self[0].wrapping_sub(rhs[0]);
         result[1] = self[1].wrapping_sub(rhs[1]);
@@ -367,7 +380,7 @@ impl Fq {
         result
     }
 
-    fn equals(&self, rhs: &Fq) -> bool {
+    pub fn equals(&self, rhs: &Fq) -> bool {
         // Subtract self from rhs
         let mut difference = self.sub_no_reduce(rhs);
         difference.bias(2);
@@ -392,6 +405,98 @@ impl Fq {
         r |= difference[14];
 
         word_is_zero(r)
+    }
+
+    pub(crate) fn mul_double_limb(x: &Fq, w: u64) -> Fq {
+        let radix = 28;
+        let radix_mask = 0xfffffff as u64;
+        let mut result = Fq::zero();
+        let whi = (w >> radix) as u32;
+        let wlo = (w & (radix_mask)) as u32;
+        let mut accum0: u64;
+        let mut accum8: u64;
+
+        accum0 = (wlo as u64) * (x[0] as u64);
+        accum8 = (wlo as u64) * (x[8] as u64);
+        accum0 += (whi as u64) * (x[15] as u64);
+        accum8 += (whi as u64) * ((x[15] + x[7]) as u64);
+        result[0] = (accum0 & radix_mask) as u32;
+        accum0 >>= radix;
+        result[8] = (accum8 & (radix_mask)) as u32;
+        accum8 >>= radix;
+        // 1
+        accum0 += (wlo as u64) * (x[1] as u64);
+        accum8 += (wlo as u64) * (x[9] as u64);
+        accum0 += (whi as u64) * (x[0] as u64);
+        accum8 += (whi as u64) * (x[8] as u64);
+        result[1] = (accum0 & (radix_mask)) as u32;
+        accum0 >>= radix;
+        result[9] = (accum8 & (radix_mask)) as u32;
+        accum8 >>= radix;
+        // 2
+        accum0 += (wlo as u64) * (x[2] as u64);
+        accum8 += (wlo as u64) * (x[10] as u64);
+        accum0 += (whi as u64) * (x[1] as u64);
+        accum8 += (whi as u64) * (x[9] as u64);
+        result[2] = (accum0 & (radix_mask)) as u32;
+        accum0 >>= radix;
+        result[10] = (accum8 & (radix_mask)) as u32;
+        accum8 >>= radix;
+        // 3
+        accum0 += (wlo as u64) * (x[3] as u64);
+        accum8 += (wlo as u64) * (x[11] as u64);
+        accum0 += (whi as u64) * (x[2] as u64);
+        accum8 += (whi as u64) * (x[10] as u64);
+        result[3] = (accum0 & (radix_mask)) as u32;
+        accum0 >>= radix;
+        result[11] = (accum8 & (radix_mask)) as u32;
+        accum8 >>= radix;
+        // 4
+        accum0 += (wlo as u64) * (x[4] as u64);
+        accum8 += (wlo as u64) * (x[12] as u64);
+        accum0 += (whi as u64) * (x[3] as u64);
+        accum8 += (whi as u64) * (x[11] as u64);
+        result[4] = (accum0 & (radix_mask)) as u32;
+        accum0 >>= radix;
+        result[12] = (accum8 & (radix_mask)) as u32;
+        accum8 >>= radix;
+        // 5
+        accum0 += (wlo as u64) * (x[5] as u64);
+        accum8 += (wlo as u64) * (x[13] as u64);
+        accum0 += (whi as u64) * (x[4] as u64);
+        accum8 += (whi as u64) * (x[12] as u64);
+        result[5] = (accum0 & (radix_mask)) as u32;
+        accum0 >>= radix;
+        result[13] = (accum8 & (radix_mask)) as u32;
+        accum8 >>= radix;
+        // 6
+        accum0 += (wlo as u64) * (x[6] as u64);
+        accum8 += (wlo as u64) * (x[14] as u64);
+        accum0 += (whi as u64) * (x[5] as u64);
+        accum8 += (whi as u64) * (x[13] as u64);
+        result[6] = (accum0 & (radix_mask)) as u32;
+        accum0 >>= radix;
+        result[14] = (accum8 & (radix_mask)) as u32;
+        accum8 >>= radix;
+        // 7
+        accum0 += (wlo as u64) * (x[7] as u64);
+        accum8 += (wlo as u64) * (x[15] as u64);
+        accum0 += (whi as u64) * (x[6] as u64);
+        accum8 += (whi as u64) * (x[14] as u64);
+        result[7] = (accum0 & (radix_mask)) as u32;
+        accum0 >>= radix;
+        result[15] = (accum8 & (radix_mask)) as u32;
+        accum8 >>= radix;
+
+        // finish
+        accum0 += accum8 + (result[8] as u64);
+        result[8] = (accum0 & (radix_mask)) as u32;
+        result[9] += (accum0 >> radix) as u32;
+
+        accum8 += result[0] as u64;
+        result[0] = (accum8 & (radix_mask)) as u32;
+        result[1] += (accum8 >> radix) as u32;
+        result
     }
 
     // Currently this does not check if the encoding is canonical (ie if the Field number is reduced)
@@ -541,5 +646,24 @@ mod test {
         for i in 0..56 {
             assert_eq!(should_be[i], y.to_bytes()[i])
         }
+    }
+
+    #[test]
+    fn test_basic_mul_double_limb() {
+        let c = Fq::mul_double_limb(&Fq::from(9u8), 100);
+
+        assert_eq!(c, Fq::from(900u16));
+    }
+
+    #[test]
+    fn test_d_min_one() {
+        let d = Fq([
+            268396374, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
+            268435454, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
+        ]);
+
+        let mut d_min_one = Fq::from(2u8) * (d - Fq::one());
+        d_min_one.strong_reduce();
+        dbg!(d_min_one);
     }
 }
