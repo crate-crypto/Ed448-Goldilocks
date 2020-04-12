@@ -30,7 +30,7 @@ pub(crate) fn mul(a: &Fq, b: &Fq) -> Fq {
         accum2 = 0;
         for i in 0..j + 1 {
             accum2 = accum2.wrapping_add(widemul(a[j - i], b[i]));
-            accum1 = accum1.wrapping_add(aa[j - i] * bb[i]);
+            accum1 = accum1.wrapping_add(aa[j - i].wrapping_mul(bb[i]));
             accum0 = accum0.wrapping_add(widemul(a[8 + j - i], b[8 + i]));
         }
         accum1 = accum1.wrapping_sub(accum2);
@@ -39,7 +39,7 @@ pub(crate) fn mul(a: &Fq, b: &Fq) -> Fq {
 
         for i in j + 1..8 {
             accum0 = accum0.wrapping_sub(widemul(a[8 + j - i], b[i]));
-            accum2 = accum2.wrapping_add(aa[8 + j - i] * bb[i]);
+            accum2 = accum2.wrapping_add(aa[8 + j - i].wrapping_mul(bb[i]));
             accum1 = accum1.wrapping_add(widemul(a[16 + j - i], b[8 + i]));
         }
         accum1 = accum1.wrapping_add(accum2);
