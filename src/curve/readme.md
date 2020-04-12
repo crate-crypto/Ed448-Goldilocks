@@ -1,9 +1,9 @@
-This library will support three curve models (
+This library will support three curves (
     
 
 - Montgomery, 
 
-- Twisted Edwards : Projective 
+- Twisted Edwards
 
 - Jacobi Quartic
  
