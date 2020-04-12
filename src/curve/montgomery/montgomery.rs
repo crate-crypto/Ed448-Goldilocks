@@ -1,4 +1,4 @@
-use crate::curve::constants::EDWARDS_D;
+use crate::curve::constants::ONE_MINUS_D;
 use crate::field::Fq;
 
 #[derive(Eq, Debug, PartialEq)]
@@ -26,7 +26,7 @@ impl Montgomery {
         self.za = self.zd.square();
         self.xd = l0.square();
         l0 = l1.square();
-        self.zd = Fq::vartime_mul_sdword_curve_constant(&self.xd, 1 - EDWARDS_D);
+        self.zd = self.xd * ONE_MINUS_D;
         l1 = sub(&self.xd, &l0);
         self.xd = l0 * self.zd;
         l0 = self.zd.sub_no_reduce(&l1);
