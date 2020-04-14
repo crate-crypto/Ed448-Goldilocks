@@ -8,22 +8,37 @@ pub struct ProjectivePoint {
 
 impl ProjectivePoint {
     pub(crate) fn is_on_curve(&self) -> bool {
-        // x^2 + y^2 = 1 + d*x^2*y^2
-        // Homogenised: (X^2 + Y^2)Z^4 = Z^4 + dX^2Y^2
         let XX = self.X.square();
         let YY = self.Y.square();
         let ZZ = self.Z.square();
         let ZZZZ = ZZ.square();
 
-        let lhs = (XX + YY) * ZZZZ;
-        let rhs = ZZZZ + (EDWARDS_D * XX * YY);
+        let lhs = (XX + YY) * ZZ;
+        let rhs = ZZZZ - (EDWARDS_D * XX * YY);
+
         lhs.equals(&rhs)
     }
 }
 
+// Check this
+// Its a variant of Niels, where a Z coordinate is added for unmixed readdition
+// XXX: Name it better
+// ((y+x)/2, (y-x)/2, dxy, Z)
+#[derive(Copy, Clone)]
 pub struct ProjectiveNielsPoint {
-    pub(crate) Y_plus_X: Fq,
-    pub(crate) Y_minus_X: Fq,
+    pub(crate) y_plus_x: Fq,
+    pub(crate) y_minus_x: Fq,
+    pub(crate) td: Fq,
     pub(crate) Z: Fq,
-    pub(crate) T2d: Fq,
+}
+
+impl ProjectiveNielsPoint {
+    pub fn identity() -> ProjectiveNielsPoint {
+        ProjectiveNielsPoint {
+            y_plus_x: Fq::one(),
+            y_minus_x: Fq::one(),
+            td: Fq::zero(),
+            Z: Fq::one(),
+        }
+    }
 }
