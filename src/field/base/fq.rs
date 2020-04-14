@@ -102,9 +102,8 @@ impl Fq {
         t2 = t1 * self;
         t2
     }
-    // TODO: Implement karatsuba square
     pub(crate) fn square(&self) -> Fq {
-        karatsuba::mul(self, self)
+        karatsuba::square(self)
     }
     // Squares self n times
     fn square_n(&self, mut n: u32) -> Fq {
