@@ -1,5 +1,7 @@
 use crate::field::Fq;
 
+// TODO: Differentiate between Twisted edwards d(a=-1) which is -39082 and edwards d(a=1) which is -39081
+
 /// Edwards `d`, equals to -39081
 pub const EDWARDS_D: Fq = Fq([
     268396374, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
