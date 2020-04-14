@@ -3,7 +3,7 @@ use std::ops::{Add, Index, IndexMut, Mul, Sub};
 /// size = 4q = 2^446 - 0x8335dc163bb124b65129c96fde933d8d723a70aadc873d6d54a7bb0d
 /// We can therefore use 14 saturated 32-bit limbs
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub struct Scalar([u32; 14]);
+pub struct Scalar(pub(crate) [u32; 14]);
 
 const MODULUS: Scalar = Scalar([
     0xab5844f3, 0x2378c292, 0x8dc58f55, 0x216cc272, 0xaed63690, 0xc44edb49, 0x7cca23e9, 0xffffffff,
