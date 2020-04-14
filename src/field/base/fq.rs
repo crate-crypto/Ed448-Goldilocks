@@ -95,7 +95,7 @@ impl Fq {
     fn is_zero(&self) -> Choice {
         self.ct_eq(&Fq::zero())
     }
-    fn invert(&self) -> Fq {
+    pub(crate) fn invert(&self) -> Fq {
         let mut t1 = self.square();
         let (mut t2, _) = t1.inverse_square_root();
         t1 = t2.square();
@@ -212,7 +212,7 @@ impl Fq {
         self[0] = (self[0] & MASK) + limb16_mod;
     }
 
-    fn strong_reduce(&mut self) {
+    pub(crate) fn strong_reduce(&mut self) {
         const MASK: u32 = (1 << 28) - 1;
 
         // After weak reducing, we know can make the guarantee that
