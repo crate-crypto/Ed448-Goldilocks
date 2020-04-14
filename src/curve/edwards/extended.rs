@@ -12,6 +12,12 @@ pub struct ExtendedPoint {
     T: Fq,
 }
 
+impl Default for ExtendedPoint {
+    fn default() -> ExtendedPoint {
+        ExtendedPoint::identity()
+    }
+}
+
 impl ExtendedPoint {
     /// Identity point
     pub fn identity() -> ExtendedPoint {
