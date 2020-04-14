@@ -1,5 +1,6 @@
 use super::karatsuba;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
+use subtle::{Choice, ConstantTimeEq};
 /// Fq represents an element in the field
 /// q = 2^448 - 2^224 -1
 ///
@@ -67,12 +68,32 @@ impl Sub<Fq> for Fq {
         inter_res
     }
 }
+impl ConstantTimeEq for Fq {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.0[0].ct_eq(&other.0[0])
+            & self.0[1].ct_eq(&other.0[1])
+            & self.0[2].ct_eq(&other.0[2])
+            & self.0[3].ct_eq(&other.0[3])
+            & self.0[4].ct_eq(&other.0[4])
+            & self.0[5].ct_eq(&other.0[5])
+            & self.0[6].ct_eq(&other.0[6])
+            & self.0[7].ct_eq(&other.0[7])
+            & self.0[8].ct_eq(&other.0[8])
+            & self.0[9].ct_eq(&other.0[9])
+            & self.0[10].ct_eq(&other.0[10])
+            & self.0[11].ct_eq(&other.0[11])
+            & self.0[12].ct_eq(&other.0[12])
+            & self.0[13].ct_eq(&other.0[13])
+            & self.0[14].ct_eq(&other.0[14])
+            & self.0[15].ct_eq(&other.0[15])
+    }
+}
 impl Fq {
     pub(crate) fn zero() -> Fq {
         Fq::from(0u8)
     }
-    fn is_zero() -> bool {
-        todo!()
+    fn is_zero(&self) -> Choice {
+        self.ct_eq(&Fq::zero())
     }
     fn invert(&self) -> Fq {
         let mut t1 = self.square();
@@ -665,5 +686,20 @@ mod test {
         let mut d_min_one = Fq::from(2u8) * (d - Fq::one());
         d_min_one.strong_reduce();
         dbg!(d_min_one);
+    }
+
+    #[test]
+    fn test_is_zero() {
+        let a = Fq::from(0u8);
+        let b = Fq::from(0u16);
+        let c = Fq::from(0u32);
+        let d = Fq::from(1u32);
+        let e = Fq([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 268435455]);
+
+        assert_eq!(a.is_zero().unwrap_u8(), 1u8);
+        assert_eq!(b.is_zero().unwrap_u8(), 1u8);
+        assert_eq!(c.is_zero().unwrap_u8(), 1u8);
+        assert_eq!(d.is_zero().unwrap_u8(), 0u8);
+        assert_eq!(e.is_zero().unwrap_u8(), 0u8);
     }
 }
