@@ -1,15 +1,17 @@
 use crate::curve::constants::{ONE_MINUS_D, TWO_D_MINUS_ONE, TWO_ONE_MINUS_D};
+use crate::curve::edwards::affine::{AffineNielsPoint, AffinePoint};
 use crate::curve::edwards::projective::{ProjectiveNielsPoint, ProjectivePoint};
-use crate::field::base::Fq;
+use crate::field::{base::Fq, scalar::Scalar};
 
 /// Represent points on the twisted edwards curve using Extended Homogenous Projective Co-ordinates
-/// (X : Y : T : Z) this corresponds to the affine (X/Z, Y/Z) with Z != 0
-/// E_d : (Y/Z)^2 + (X/Z)^2 = 1 + d(X/Z)^2(Y/Z)^2
+/// (X : Y : T : Z) this corresponds to the affine (X/Z, Y/Z, T/Z) with Z != 0 and T = XY
+/// E_d : (Y/Z)^2 - (X/Z)^2 = 1 + d(X/Z)^2(Y/Z)^2
+#[derive(Copy, Clone)]
 pub struct ExtendedPoint {
-    X: Fq,
-    Y: Fq,
-    Z: Fq,
-    T: Fq,
+    pub(crate) X: Fq,
+    pub(crate) Y: Fq,
+    pub(crate) Z: Fq,
+    pub(crate) T: Fq,
 }
 
 impl ExtendedPoint {
@@ -21,6 +23,9 @@ impl ExtendedPoint {
             Z: Fq::one(),
             T: Fq::zero(),
         }
+    }
+    pub fn scalar_mul(s: &Scalar) -> ExtendedPoint {
+        todo!()
     }
 
     pub fn equals(&self, other: &ExtendedPoint) -> bool {
@@ -35,13 +40,79 @@ impl ExtendedPoint {
             Z: self.Z,
         }
     }
-    pub fn to_niels(&self) -> ProjectiveNielsPoint {
-        ProjectiveNielsPoint {
-            Y_plus_X: self.X + self.Y,
-            Y_minus_X: self.Y - self.X,
-            Z: self.Z,
-            T2d: self.T * TWO_D_MINUS_ONE,
+    pub fn to_affine(&self) -> AffinePoint {
+        if self.equals(&ExtendedPoint::identity()) || self.Z.equals(&Fq::zero()) {
+            return AffinePoint {
+                x: Fq::zero(),
+                y: Fq::zero(),
+            };
         }
+        let r = self.Z.invert();
+        let s = r.square();
+
+        let mut x = self.X * s;
+        x.strong_reduce();
+
+        let t = self.Y * s;
+
+        let mut y = t * r;
+        y.strong_reduce();
+
+        AffinePoint { x, y }
+    }
+    pub fn to_projective_niels(&self) -> ProjectiveNielsPoint {
+        ProjectiveNielsPoint {
+            y_plus_x: self.X + self.Y,
+            y_minus_x: self.Y - self.X,
+            Z: self.Z + self.Z,
+            td: self.T * TWO_D_MINUS_ONE,
+        }
+    }
+
+    pub fn add_affine_niels(&self, other: AffineNielsPoint, before_double: bool) -> ExtendedPoint {
+        let mut a = Fq::zero();
+        let mut b = Fq::zero();
+        let mut c = Fq::zero();
+
+        let mut X = self.X;
+        let mut Y = self.Y;
+        let mut Z = self.Z;
+        let mut T = self.T;
+
+        b = Y - X;
+        a = other.y_minus_x * b;
+        b = X.add_no_reduce(&Y);
+        Y = other.y_plus_x * b;
+        X = other.td * T;
+        c = a.add_no_reduce(&Y);
+        b = Y - a;
+        Y = Z - X;
+        a = X.add_no_reduce(&Z);
+        Z = a * Y;
+        X = Y * b;
+        Y = a * c;
+        if !before_double {
+            T = b * c;
+        }
+
+        ExtendedPoint { X, Y, Z, T }
+    }
+    pub fn add_projective_niels(
+        &self,
+        other: &ProjectiveNielsPoint,
+        before_double: bool,
+    ) -> ExtendedPoint {
+        let mut result = self.clone();
+        result.Z = other.Z * result.Z;
+
+        result.add_affine_niels(
+            AffineNielsPoint {
+                y_plus_x: other.y_plus_x,
+                y_minus_x: other.y_minus_x,
+                td: other.td,
+            },
+            before_double,
+        )
     }
     pub(crate) fn is_on_curve(&self) -> bool {
         let XY = self.X * self.Y;
@@ -429,6 +500,8 @@ mod tests {
 
         let neg_a = a.negate();
         assert!(neg_a.equals(&expected_neg_a));
+
+        assert!(a.add(&neg_a).equals(&ExtendedPoint::identity()));
     }
 
     #[test]
@@ -480,5 +553,41 @@ mod tests {
         let double_a = a.double_internal(false);
 
         assert!(double_a.equals(&expected_double_a));
+    }
+
+    #[test]
+    fn test_add_affine_niels() {
+        let p = ExtendedPoint::identity();
+        let q = AffineNielsPoint {
+            y_minus_x: Fq::from(0x068d5b74u32),
+            y_plus_x: Fq::from(0x068d5b74u32),
+            td: Fq::from(0x068d5b74u32),
+        };
+
+        let X = Fq([
+            0x0fffffff, 0x0fffffff, 0x0fffffff, 0x0fffffff, 0x0fffffff, 0x0fffffff, 0x0fffffff,
+            0x0fffffff, 0x0ffffffe, 0x0fffffff, 0x0fffffff, 0x0fffffff, 0x0fffffff, 0x0fffffff,
+            0x0fffffff, 0x0fffffff,
+        ]);
+
+        let Y = Fq([
+            0x0d1ab6e7, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+            0x00000000, 0x0fffffff, 0x0fffffff, 0x0fffffff, 0x0fffffff, 0x0fffffff, 0x0fffffff,
+            0x0fffffff, 0x0fffffff,
+        ]);
+
+        let Z = Fq([
+            0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+            0x00000000, 0x0fffffff, 0x0fffffff, 0x0fffffff, 0x0fffffff, 0x0fffffff, 0x0fffffff,
+            0x0fffffff, 0x0fffffff,
+        ]);
+
+        let T = Fq::zero();
+
+        let expected_result = ExtendedPoint { X, Y, Z, T };
+
+        let result = p.add_affine_niels(q, true);
+
+        assert!(result.equals(&expected_result));
     }
 }
