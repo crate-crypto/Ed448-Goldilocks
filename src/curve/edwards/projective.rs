@@ -1,4 +1,6 @@
 use crate::curve::constants::EDWARDS_D;
+use crate::curve::edwards::affine::AffineNielsPoint;
+use crate::curve::edwards::ExtendedPoint;
 use crate::field::base::Fq;
 pub struct ProjectivePoint {
     pub(crate) X: Fq,
@@ -40,5 +42,32 @@ impl ProjectiveNielsPoint {
             td: Fq::zero(),
             Z: Fq::one(),
         }
+    }
+    pub fn to_extended(&self) -> ExtendedPoint {
+        let two_y = self.y_plus_x + self.y_minus_x;
+        let two_x = self.y_plus_x - self.y_minus_x;
+
+        assert_ne!(self.Z, Fq::zero());
+
+        let T = two_y * two_x;
+        let X = self.Z * two_x;
+        let Y = self.Z * two_y;
+        let Z = self.Z.square();
+
+        ExtendedPoint { X, Y, Z, T }
+    }
+
+    pub fn to_affine_niels(&self) -> AffineNielsPoint {
+        AffineNielsPoint {
+            y_plus_x: self.y_plus_x,
+            y_minus_x: self.y_minus_x,
+            td: self.td,
+        }
+    }
+    // XXX: Code duplication here as AffineNielsPoint also has this.
+    // We can switch it out once ScalarMul get refactored
+    pub fn conditional_negate(&mut self, neg: u32) {
+        self.y_minus_x.conditional_swap(&mut self.y_plus_x, neg);
+        self.td.conditional_negate(neg);
     }
 }
