@@ -78,6 +78,11 @@ impl ConstantTimeEq for Fq {
             & self.0[15].ct_eq(&other.0[15])
     }
 }
+impl Default for Fq {
+    fn default() -> Fq {
+        Fq::zero()
+    }
+}
 impl Fq {
     pub(crate) fn zero() -> Fq {
         Fq::from(0)

@@ -8,7 +8,20 @@ pub struct ProjectivePoint {
     pub(crate) Z: Fq,
 }
 
+impl Default for ProjectivePoint {
+    fn default() -> ProjectivePoint {
+        ProjectivePoint::identity()
+    }
+}
+
 impl ProjectivePoint {
+    pub fn identity() -> ProjectivePoint {
+        ProjectivePoint {
+            X: Fq::zero(),
+            Y: Fq::one(),
+            Z: Fq::one(),
+        }
+    }
     pub(crate) fn is_on_curve(&self) -> bool {
         let XX = self.X.square();
         let YY = self.Y.square();
@@ -19,6 +32,12 @@ impl ProjectivePoint {
         let rhs = ZZZZ - (EDWARDS_D * XX * YY);
 
         lhs.equals(&rhs)
+    }
+}
+
+impl Default for ProjectiveNielsPoint {
+    fn default() -> ProjectiveNielsPoint {
+        ProjectiveNielsPoint::identity()
     }
 }
 

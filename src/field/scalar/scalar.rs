@@ -53,6 +53,11 @@ impl Sub<Scalar> for Scalar {
         sub_extra(&self, &rhs, 0)
     }
 }
+impl Default for Scalar {
+    fn default() -> Scalar {
+        Scalar::zero()
+    }
+}
 fn word_is_zero(word: u32) -> bool {
     // If the word is zero, then when we minus 1, we should get 0xffffffff
     word.wrapping_sub(1) == 0xffffffff
