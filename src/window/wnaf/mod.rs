@@ -1,5 +1,6 @@
 use crate::curve::edwards::projective::ProjectiveNielsPoint;
 use crate::curve::edwards::ExtendedPoint;
+use crate::field::Fq;
 
 pub(crate) const WINDOW: usize = 5;
 pub(crate) const WINDOW_MASK: usize = (1 << WINDOW) - 1;
@@ -17,6 +18,27 @@ pub fn prepare_fixed_window(point: &ExtendedPoint) -> [ProjectiveNielsPoint; TAB
         table[i] = p_original.to_projective_niels();
     }
     table
+}
+
+pub fn lookup(table: [ProjectiveNielsPoint; TABLE_SIZE], index: u32) -> ProjectiveNielsPoint {
+    let mut result = ProjectiveNielsPoint {
+        y_plus_x: Fq::zero(),
+        y_minus_x: Fq::zero(),
+        td: Fq::zero(),
+        Z: Fq::zero(),
+    };
+
+    for i in 0..TABLE_SIZE {
+        let m = super::select_mask(index, i as u32);
+        for j in 0..16 {
+            result.y_minus_x[j] |= m & table[i].y_minus_x[j];
+            result.y_plus_x[j] |= m & table[i].y_plus_x[j];
+            result.td[j] |= m & table[i].td[j];
+            result.Z[j] |= m & table[i].Z[j];
+        }
+    }
+
+    result
 }
 #[cfg(test)]
 mod tests {
