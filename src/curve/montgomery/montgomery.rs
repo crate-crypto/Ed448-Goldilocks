@@ -1,7 +1,7 @@
 use crate::curve::constants::ONE_MINUS_D;
 use crate::field::Fq;
 
-#[derive(Eq, Debug, PartialEq)]
+#[derive(Eq, Debug, PartialEq, Default)]
 pub struct Montgomery {
     z0: Fq,
     zd: Fq,
@@ -84,5 +84,14 @@ mod tests {
         };
 
         assert_eq!(montgomery, expected_montgomery);
+    }
+
+    #[test]
+    fn test_default_behaviour() {
+        let default_montgomery = Montgomery::default();
+        assert_eq!(default_montgomery, Montgomery {
+            z0: Fq::zero(), zd: Fq::zero(), za: Fq::zero(),
+            xa: Fq::zero(), xd: Fq::zero()
+        });
     }
 }
