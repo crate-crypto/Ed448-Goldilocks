@@ -6,7 +6,7 @@ use crate::field::{base::Fq, scalar::Scalar};
 /// Represent points on the twisted edwards curve using Extended Homogenous Projective Co-ordinates
 /// (X : Y : T : Z) this corresponds to the affine (X/Z, Y/Z, T/Z) with Z != 0 and T = XY
 /// E_d : (Y/Z)^2 - (X/Z)^2 = 1 + d(X/Z)^2(Y/Z)^2
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct ExtendedPoint {
     pub(crate) X: Fq,
     pub(crate) Y: Fq,
@@ -24,14 +24,63 @@ impl ExtendedPoint {
             T: Fq::zero(),
         }
     }
-    pub fn scalar_mul(s: &Scalar) -> ExtendedPoint {
-        todo!()
+    // XXX: This is _almost_ unreadable, we will slowly refactor for interopability
+    pub fn scalar_mul(&self, s: &Scalar) -> ExtendedPoint {
+        use crate::window::wnaf;
+        use crate::window::BASE_TABLE;
+
+        let mut result = ExtendedPoint {
+            X: Fq::zero(),
+            Y: Fq::zero(),
+            Z: Fq::zero(),
+            T: Fq::zero(),
+        };
+
+        let mut scalar_one_x = *s + BASE_TABLE.scalar_adjustment;
+        // XXX: Halve method does not seem to be working correctly
+        scalar_one_x = scalar_one_x * Scalar::from(2).invert();
+
+        let multiples = wnaf::prepare_fixed_window(self);
+
+        let mut first = true;
+        let loop_end = 446 - (445 % wnaf::WINDOW) - 1;
+        let loop_start = 0;
+
+        for i in (loop_start..=loop_end).rev().step_by(wnaf::WINDOW) {
+            let mut bits = scalar_one_x[i / 32] >> (i % 32);
+            if (i % 32 >= 32 - wnaf::WINDOW) && (i / 32 < (14 - 1)) {
+                bits ^= scalar_one_x[(i / 32) + 1] << (32 - (i % 32));
+            }
+            bits &= wnaf::WINDOW_MASK as u32;
+            let inv = (bits >> (wnaf::WINDOW - 1)).wrapping_sub(1);
+            bits ^= inv;
+
+            let mut neg_P = wnaf::lookup(multiples, bits & (wnaf::WINDOW_T_MASK as u32));
+            neg_P.conditional_negate(inv);
+            if first {
+                result = neg_P.to_extended();
+                first = false;
+            } else {
+                for _ in 0..wnaf::WINDOW - 1 {
+                    result = result.double_internal(true);
+                }
+                result = result.double_internal(false);
+                result = result.add_projective_niels(&neg_P, false);
+            }
+        }
+
+        result
     }
 
     pub fn equals(&self, other: &ExtendedPoint) -> bool {
-        let YX = self.Y * other.X;
-        let XY = self.X * other.Y;
-        YX.equals(&XY)
+        // Assumes (0,0,0,0) is not possible
+        let XZ = self.X * other.Z;
+        let ZX = self.Z * other.X;
+
+        let YZ = self.Y * other.Z;
+        let ZY = self.Z * other.Y;
+
+        XZ.equals(&ZX) & YZ.equals(&ZY)
     }
     pub fn to_projective(&self) -> ProjectivePoint {
         ProjectivePoint {
@@ -582,6 +631,7 @@ mod tests {
             0x0fffffff, 0x0fffffff,
         ]);
 
+        // XXX: Check, this test seems to be invariant under the value of T
         let T = Fq::zero();
 
         let expected_result = ExtendedPoint { X, Y, Z, T };
@@ -589,5 +639,62 @@ mod tests {
         let result = p.add_affine_niels(q, true);
 
         assert!(result.equals(&expected_result));
+    }
+
+    #[test]
+    fn test_scalr_mul() {
+        let p = ExtendedPoint {
+            X: Fq([
+                0x0a7f964a, 0x0db033f8, 0x062b9f0b, 0x07bff7d6, 0x05e755a2, 0x013b6f8b, 0x0f080bdc,
+                0x0a112ac0, 0x0416988a, 0x03404b2f, 0x00561ea3, 0x01df752c, 0x070e0b1c, 0x0e73a0c4,
+                0x078245d5, 0x09a42df0,
+            ]),
+            Y: Fq([
+                0x0c2e6c3d, 0x0a03c3f2, 0x0fd16e97, 0x0bab4ec6, 0x08ddba78, 0x091638ef, 0x0b0add85,
+                0x070c212d, 0x04bcd337, 0x0c828579, 0x0712cfff, 0x09c1534a, 0x0119cafe, 0x08e72ee0,
+                0x0f14ff19, 0x0d0c7e25,
+            ]),
+            Z: Fq([
+                0x0a0d6be1, 0x0bcd9788, 0x00f9ca8a, 0x038cf839, 0x00912da2, 0x0a3c503a, 0x056fe7e0,
+                0x03db9a49, 0x0f19d062, 0x052ac631, 0x01cbda35, 0x02967214, 0x0eed2db2, 0x0a948ce0,
+                0x05f7a3a7, 0x0fa35bc2,
+            ]),
+            T: Fq([
+                0x0fc9f32d, 0x0e442931, 0x065e50ff, 0x04be230d, 0x0dc923c2, 0x0000467c, 0x08fc8902,
+                0x0e034cfb, 0x0126370c, 0x06ec706d, 0x06ff07ad, 0x0a27cd65, 0x060f214f, 0x0eb7756d,
+                0x0b694dc7, 0x015705ad,
+            ]),
+        };
+        let scalar = Scalar([
+            0x6ee372b7, 0xe128ae78, 0x1533427c, 0xad0b7015, 0x307f665e, 0xde8026c1, 0xb64629d1,
+            0xab454c66, 0x3fe5bf1a, 0x083f8304, 0x3c003777, 0xdef437f6, 0xee2e1b73, 0x05ca185a,
+        ]);
+
+        let expected_point = ExtendedPoint {
+            X: Fq([
+                0x08630007, 0x0bd755e6, 0x0f76b928, 0x070d9694, 0x0b952009, 0x0cf85b12, 0x0c3a6e9c,
+                0x0e2d860e, 0x02fd2901, 0x09a73726, 0x02aa2d4c, 0x06913ea9, 0x090da66d, 0x06a5c6f1,
+                0x04cc7a13, 0x0eb24ed8,
+            ]),
+            Y: Fq([
+                0x0bb37152, 0x0a3a36b3, 0x0a720c7f, 0x0e29095f, 0x04e76cf4, 0x0cfad965, 0x07439798,
+                0x0f4b7ba4, 0x0316ba61, 0x09389566, 0x07f96104, 0x07bdc39c, 0x0f019987, 0x05416850,
+                0x0612c6c8, 0x0e231baa,
+            ]),
+            Z: Fq([
+                0x0179c756, 0x04130eef, 0x07f43255, 0x0cc1534d, 0x03e347fd, 0x0c745e4d, 0x068d7bf5,
+                0x020b8465, 0x0356d2f1, 0x069b22fd, 0x0b6cf87f, 0x0edf9761, 0x034f512f, 0x0411b43f,
+                0x033f0755, 0x06195e97,
+            ]),
+            T: Fq([
+                0x0866187a, 0x035622be, 0x0b9e2e78, 0x0cae26c6, 0x041c2c41, 0x07296c68, 0x03343d3e,
+                0x062c0927, 0x0cf5d263, 0x08db465d, 0x033382d6, 0x0c5e6eff, 0x0c0ded8d, 0x037837bf,
+                0x03780cc6, 0x0e2360df,
+            ]),
+        };
+
+        let got = p.scalar_mul(&scalar);
+
+        assert!(expected_point.equals(&got));
     }
 }
