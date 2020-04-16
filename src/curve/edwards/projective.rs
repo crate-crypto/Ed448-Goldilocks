@@ -2,6 +2,7 @@ use crate::curve::constants::EDWARDS_D;
 use crate::curve::edwards::affine::AffineNielsPoint;
 use crate::curve::edwards::ExtendedPoint;
 use crate::field::base::Fq;
+
 pub struct ProjectivePoint {
     pub(crate) X: Fq,
     pub(crate) Y: Fq,
