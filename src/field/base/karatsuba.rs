@@ -177,9 +177,9 @@ pub(crate) fn square(a: &Fq) -> Fq {
 
 #[test]
 fn test_basic_mul() {
-    let a = Fq::from(5u8);
-    let b = Fq::from(210u32);
-    let c = Fq::from(1050u32);
+    let a = Fq::from(5);
+    let b = Fq::from(210);
+    let c = Fq::from(1050);
 
     let expected_c = mul(&a, &b);
     assert_eq!(expected_c, c);
@@ -213,17 +213,17 @@ fn test_mul() {
 }
 #[test]
 fn test_naive_square() {
-    let a = Fq::from(5u8);
-    let b = Fq::from(5u32);
-    let c = Fq::from(25u32);
+    let a = Fq::from(5);
+    let b = Fq::from(5);
+    let c = Fq::from(25);
 
     let expected_c = mul(&a, &b);
     assert_eq!(expected_c, c);
 }
 #[test]
 fn test_karatsuba_square() {
-    let a = Fq::from(5u8);
-    let expected_c = Fq::from(25u32);
+    let a = Fq::from(5);
+    let expected_c = Fq::from(25);
     let c = square(&a);
     assert_eq!(expected_c, c);
 

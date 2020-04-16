@@ -16,16 +16,6 @@ impl From<u32> for Fq {
         Fq([a, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     }
 }
-impl From<u16> for Fq {
-    fn from(a: u16) -> Fq {
-        Fq::from(a as u32)
-    }
-}
-impl From<u8> for Fq {
-    fn from(a: u8) -> Fq {
-        Fq::from(a as u32)
-    }
-}
 
 impl Index<usize> for Fq {
     type Output = u32;
@@ -90,11 +80,25 @@ impl ConstantTimeEq for Fq {
 }
 impl Fq {
     pub(crate) fn zero() -> Fq {
-        Fq::from(0u8)
+        Fq::from(0)
     }
     fn is_zero(&self) -> Choice {
         self.ct_eq(&Fq::zero())
     }
+    // if swap = -1, we swap self to be x
+    pub fn conditional_swap(&mut self, x: &mut Fq, swap: u32) {
+        for i in 0..x.0.len() {
+            let x_i = x.0[i];
+            let s = (x_i ^ self.0[i]) & swap;
+            x.0[i] ^= s;
+            self.0[i] ^= s;
+        }
+    }
+    pub fn conditional_negate(&mut self, neg: u32) {
+        let mut neg_self = self.negate();
+        self.conditional_swap(&mut neg_self, neg);
+    }
+
     pub(crate) fn invert(&self) -> Fq {
         let mut t1 = self.square();
         let (mut t2, _) = t1.inverse_square_root();
@@ -150,7 +154,7 @@ impl Fq {
     }
 
     pub(crate) fn one() -> Fq {
-        Fq::from(1u8)
+        Fq::from(1)
     }
 
     pub(crate) fn negate(&self) -> Fq {
@@ -402,8 +406,7 @@ impl Fq {
 
     pub fn equals(&self, rhs: &Fq) -> bool {
         // Subtract self from rhs
-        let mut difference = self.sub_no_reduce(rhs);
-        difference.bias(2);
+        let mut difference = *self - *rhs;
         difference.strong_reduce();
 
         let mut r = 0u32;
@@ -577,30 +580,46 @@ mod test {
     use super::*;
     #[test]
     fn test_add() {
-        let a = Fq::from(8u8);
+        let a = Fq::from(8);
         let b = a + a;
-        let c = Fq::from(16u8);
+        let c = Fq::from(16);
         assert!(b.equals(&c));
     }
     #[test]
     fn test_bias() {
-        let mut a = Fq::from(5u8);
+        let mut a = Fq::from(5);
         a.bias(2);
-        let b = Fq::from(5u8);
+        let b = Fq::from(5);
         assert!(a.equals(&b));
     }
 
     #[test]
     #[should_panic]
     fn test_bias_more_than_headroom() {
-        let mut a = Fq::from(5u8);
+        let mut a = Fq::from(5);
         a.bias(17);
     }
 
     #[test]
+    fn test_equals() {
+        let a = Fq::from(10);
+        let b = Fq::from(20);
+        assert!(!a.equals(&b));
+
+        let c = Fq::from(99);
+        let d = Fq::from(98);
+
+        let ab = a * b;
+        let ba = b * a;
+        let cd = c * d;
+        assert!(!ab.equals(&cd));
+        assert!(ab.equals(&ba));
+    }
+
+    #[test]
     fn test_sub() {
-        let x = Fq::from(255u8);
-        let y = Fq::from(255u8);
+        let x = Fq::from(255);
+        let y = Fq::from(255);
         let MODULUS = Fq([
             0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff,
             0xffffffe, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff,
@@ -670,9 +689,9 @@ mod test {
 
     #[test]
     fn test_basic_mul_double_limb() {
-        let c = Fq::mul_double_limb(&Fq::from(9u8), 100);
+        let c = Fq::mul_double_limb(&Fq::from(9), 100);
 
-        assert_eq!(c, Fq::from(900u16));
+        assert_eq!(c, Fq::from(900));
     }
 
     #[test]
@@ -682,17 +701,17 @@ mod test {
             268435454, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
         ]);
 
-        let mut d_min_one = Fq::from(2u8) * (d - Fq::one());
+        let mut d_min_one = Fq::from(2) * (d - Fq::one());
         d_min_one.strong_reduce();
         dbg!(d_min_one);
     }
 
     #[test]
     fn test_is_zero() {
-        let a = Fq::from(0u8);
-        let b = Fq::from(0u16);
-        let c = Fq::from(0u32);
-        let d = Fq::from(1u32);
+        let a = Fq::from(0);
+        let b = Fq::from(0);
+        let c = Fq::from(0);
+        let d = Fq::from(1);
         let e = Fq([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 268435455]);
 
         assert_eq!(a.is_zero().unwrap_u8(), 1u8);
@@ -700,5 +719,39 @@ mod test {
         assert_eq!(c.is_zero().unwrap_u8(), 1u8);
         assert_eq!(d.is_zero().unwrap_u8(), 0u8);
         assert_eq!(e.is_zero().unwrap_u8(), 0u8);
+    }
+    #[test]
+    fn test_conditional_swap() {
+        let neg_one = 0xffffffff;
+
+        let mut x = Fq::from(1908);
+        let x_old = Fq::from(1908);
+        let mut y = Fq::from(200);
+        let y_old = Fq::from(200);
+
+        // x and y should swap value
+        x.conditional_swap(&mut y, neg_one);
+        assert!(x.equals(&y_old));
+        assert!(y.equals(&x_old));
+
+        // x and y should stay the same
+        x.conditional_swap(&mut y, 0);
+        assert!(x.equals(&y_old));
+        assert!(y.equals(&x_old));
+    }
+
+    #[test]
+    fn test_conditional_negate() {
+        let neg_one = 0xffffffff;
+
+        let mut a = Fq::from(100);
+        let a_neg = a.negate();
+
+        a.conditional_negate(neg_one);
+        assert!(a.equals(&a_neg));
+        //
+        let mut b = Fq::from(200);
+        b.conditional_negate(0);
+        assert!(b.equals(&b));
     }
 }
