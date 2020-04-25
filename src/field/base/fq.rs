@@ -1,6 +1,6 @@
 use super::karatsuba;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
-use subtle::{Choice, ConstantTimeEq};
+use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
 /// Fq represents an element in the field
 /// q = 2^448 - 2^224 -1
 ///
@@ -8,7 +8,7 @@ use subtle::{Choice, ConstantTimeEq};
 /// a field element `x` as x_0 * 2^{28 * 0} + x_1 * 2^{28 * 1} + .... + x_15 * 2^{28 * 15}
 ///
 /// XXX: Compute the wiggle room
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Fq(pub(crate) [u32; 16]);
 
 impl From<u32> for Fq {
@@ -58,26 +58,111 @@ impl Sub<Fq> for Fq {
         inter_res
     }
 }
-impl ConstantTimeEq for Fq {
-    fn ct_eq(&self, other: &Self) -> Choice {
-        self.0[0].ct_eq(&other.0[0])
-            & self.0[1].ct_eq(&other.0[1])
-            & self.0[2].ct_eq(&other.0[2])
-            & self.0[3].ct_eq(&other.0[3])
-            & self.0[4].ct_eq(&other.0[4])
-            & self.0[5].ct_eq(&other.0[5])
-            & self.0[6].ct_eq(&other.0[6])
-            & self.0[7].ct_eq(&other.0[7])
-            & self.0[8].ct_eq(&other.0[8])
-            & self.0[9].ct_eq(&other.0[9])
-            & self.0[10].ct_eq(&other.0[10])
-            & self.0[11].ct_eq(&other.0[11])
-            & self.0[12].ct_eq(&other.0[12])
-            & self.0[13].ct_eq(&other.0[13])
-            & self.0[14].ct_eq(&other.0[14])
-            & self.0[15].ct_eq(&other.0[15])
+
+impl ConditionallyNegatable for Fq {
+    fn conditional_negate(&mut self, choice: Choice) {
+        let self_neg = self.clone().negate();
+        self.conditional_assign(&self_neg, choice);
     }
 }
+
+impl ConditionallySelectable for Fq {
+    fn conditional_select(a: &Fq, b: &Fq, choice: Choice) -> Fq {
+        Fq([
+            u32::conditional_select(&a.0[0], &b.0[0], choice),
+            u32::conditional_select(&a.0[1], &b.0[1], choice),
+            u32::conditional_select(&a.0[2], &b.0[2], choice),
+            u32::conditional_select(&a.0[3], &b.0[3], choice),
+            u32::conditional_select(&a.0[4], &b.0[4], choice),
+            u32::conditional_select(&a.0[5], &b.0[5], choice),
+            u32::conditional_select(&a.0[6], &b.0[6], choice),
+            u32::conditional_select(&a.0[7], &b.0[7], choice),
+            u32::conditional_select(&a.0[8], &b.0[8], choice),
+            u32::conditional_select(&a.0[9], &b.0[9], choice),
+            u32::conditional_select(&a.0[10], &b.0[10], choice),
+            u32::conditional_select(&a.0[11], &b.0[11], choice),
+            u32::conditional_select(&a.0[12], &b.0[12], choice),
+            u32::conditional_select(&a.0[13], &b.0[13], choice),
+            u32::conditional_select(&a.0[14], &b.0[14], choice),
+            u32::conditional_select(&a.0[15], &b.0[15], choice),
+        ])
+    }
+
+    fn conditional_assign(&mut self, other: &Fq, choice: Choice) {
+        self.0[0].conditional_assign(&other.0[0], choice);
+        self.0[1].conditional_assign(&other.0[1], choice);
+        self.0[2].conditional_assign(&other.0[2], choice);
+        self.0[3].conditional_assign(&other.0[3], choice);
+        self.0[4].conditional_assign(&other.0[4], choice);
+        self.0[5].conditional_assign(&other.0[5], choice);
+        self.0[6].conditional_assign(&other.0[6], choice);
+        self.0[7].conditional_assign(&other.0[7], choice);
+        self.0[8].conditional_assign(&other.0[8], choice);
+        self.0[9].conditional_assign(&other.0[9], choice);
+        self.0[10].conditional_assign(&other.0[10], choice);
+        self.0[11].conditional_assign(&other.0[11], choice);
+        self.0[12].conditional_assign(&other.0[12], choice);
+        self.0[13].conditional_assign(&other.0[13], choice);
+        self.0[14].conditional_assign(&other.0[14], choice);
+        self.0[15].conditional_assign(&other.0[15], choice);
+    }
+
+    fn conditional_swap(a: &mut Fq, b: &mut Fq, choice: Choice) {
+        u32::conditional_swap(&mut a.0[0], &mut b.0[0], choice);
+        u32::conditional_swap(&mut a.0[1], &mut b.0[1], choice);
+        u32::conditional_swap(&mut a.0[2], &mut b.0[2], choice);
+        u32::conditional_swap(&mut a.0[3], &mut b.0[3], choice);
+        u32::conditional_swap(&mut a.0[4], &mut b.0[4], choice);
+        u32::conditional_swap(&mut a.0[5], &mut b.0[5], choice);
+        u32::conditional_swap(&mut a.0[6], &mut b.0[6], choice);
+        u32::conditional_swap(&mut a.0[7], &mut b.0[7], choice);
+        u32::conditional_swap(&mut a.0[8], &mut b.0[8], choice);
+        u32::conditional_swap(&mut a.0[9], &mut b.0[9], choice);
+        u32::conditional_swap(&mut a.0[10], &mut b.0[10], choice);
+        u32::conditional_swap(&mut a.0[11], &mut b.0[11], choice);
+        u32::conditional_swap(&mut a.0[12], &mut b.0[12], choice);
+        u32::conditional_swap(&mut a.0[13], &mut b.0[13], choice);
+        u32::conditional_swap(&mut a.0[14], &mut b.0[14], choice);
+        u32::conditional_swap(&mut a.0[15], &mut b.0[15], choice);
+    }
+}
+
+impl ConstantTimeEq for Fq {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        // XXX: I think we need to reduce before comparing
+
+        let mut difference = *self - *other;
+        difference.strong_reduce();
+
+        let zero = Fq::zero();
+
+        difference[0].ct_eq(&zero[0])
+            & difference[1].ct_eq(&zero[1])
+            & difference[2].ct_eq(&zero[2])
+            & difference[3].ct_eq(&zero[3])
+            & difference[4].ct_eq(&zero[4])
+            & difference[5].ct_eq(&zero[5])
+            & difference[6].ct_eq(&zero[6])
+            & difference[7].ct_eq(&zero[7])
+            & difference[8].ct_eq(&zero[8])
+            & difference[9].ct_eq(&zero[9])
+            & difference[10].ct_eq(&zero[10])
+            & difference[11].ct_eq(&zero[11])
+            & difference[12].ct_eq(&zero[12])
+            & difference[13].ct_eq(&zero[13])
+            & difference[14].ct_eq(&zero[14])
+            & difference[15].ct_eq(&zero[15])
+    }
+}
+
+impl PartialEq for Fq {
+    fn eq(&self, other: &Fq) -> bool {
+        self.ct_eq(&other).into()
+    }
+}
+//XXX: Maybe compiler can infer this from derive(Eq)?
+impl Eq for Fq {}
+
 impl Default for Fq {
     fn default() -> Fq {
         Fq::zero()
@@ -87,21 +172,14 @@ impl Fq {
     pub(crate) fn zero() -> Fq {
         Fq::from(0)
     }
-    fn is_zero(&self) -> Choice {
+    pub(crate) fn is_zero(&self) -> Choice {
         self.ct_eq(&Fq::zero())
     }
-    // if swap = -1, we swap self to be x
-    pub fn conditional_swap(&mut self, x: &mut Fq, swap: u32) {
-        for i in 0..x.0.len() {
-            let x_i = x.0[i];
-            let s = (x_i ^ self.0[i]) & swap;
-            x.0[i] ^= s;
-            self.0[i] ^= s;
-        }
-    }
-    pub fn conditional_negate(&mut self, neg: u32) {
-        let mut neg_self = self.negate();
-        self.conditional_swap(&mut neg_self, neg);
+    // XXX: optimise
+    pub(crate) fn low_bit(&self) -> u32 {
+        let mut clone = self.clone();
+        clone.strong_reduce();
+        0u32.wrapping_sub(clone[0] & 1)
     }
 
     pub(crate) fn invert(&self) -> Fq {
@@ -124,7 +202,7 @@ impl Fq {
 
         result
     }
-    fn inverse_square_root(&self) -> (Fq, bool) {
+    pub(crate) fn inverse_square_root(&self) -> (Fq, bool) {
         let (mut l0, mut l1, mut l2) = (Fq::zero(), Fq::zero(), Fq::zero());
 
         l1 = self.square();
@@ -154,8 +232,22 @@ impl Fq {
         l2 = l1.square();
         l0 = l2 * self;
 
-        let is_residue = l0.equals(&Fq::one());
+        let is_residue = l0 == Fq::one();
         (l1, is_residue)
+    }
+
+    // sqrt(u/v) = u * invsqrt(u/v)
+    // XXX: Probably a better way to do this?
+    pub(crate) fn sqrt_ratio(u: &Fq, v: &Fq) -> (Fq, bool) {
+        let x = *u * v;
+
+        let (inv_sqrt_x, is_res) = x.inverse_square_root();
+        (inv_sqrt_x * u, is_res)
+    }
+
+    pub fn is_negative(&self) -> Choice {
+        let bytes = self.to_bytes();
+        (bytes[0] & 1).into()
     }
 
     pub(crate) fn one() -> Fq {
@@ -409,32 +501,6 @@ impl Fq {
         result
     }
 
-    pub fn equals(&self, rhs: &Fq) -> bool {
-        // Subtract self from rhs
-        let mut difference = *self - *rhs;
-        difference.strong_reduce();
-
-        let mut r = 0u32;
-
-        r |= difference[0];
-        r |= difference[1];
-        r |= difference[2];
-        r |= difference[3];
-        r |= difference[4];
-        r |= difference[5];
-        r |= difference[6];
-        r |= difference[7];
-        r |= difference[8];
-        r |= difference[9];
-        r |= difference[10];
-        r |= difference[11];
-        r |= difference[12];
-        r |= difference[13];
-        r |= difference[14];
-
-        word_is_zero(r)
-    }
-
     pub(crate) fn mul_double_limb(x: &Fq, w: u64) -> Fq {
         let radix = 28;
         let radix_mask = 0xfffffff as u64;
@@ -588,14 +654,14 @@ mod test {
         let a = Fq::from(8);
         let b = a + a;
         let c = Fq::from(16);
-        assert!(b.equals(&c));
+        assert!(b == c);
     }
     #[test]
     fn test_bias() {
         let mut a = Fq::from(5);
         a.bias(2);
         let b = Fq::from(5);
-        assert!(a.equals(&b));
+        assert!(a == b);
     }
 
     #[test]
@@ -609,7 +675,7 @@ mod test {
     fn test_equals() {
         let a = Fq::from(10);
         let b = Fq::from(20);
-        assert!(!a.equals(&b));
+        assert!(a != b);
 
         let c = Fq::from(99);
         let d = Fq::from(98);
@@ -617,8 +683,8 @@ mod test {
         let ab = a * b;
         let ba = b * a;
         let cd = c * d;
-        assert!(!ab.equals(&cd));
-        assert!(ab.equals(&ba));
+        assert!(ab != cd);
+        assert!(ab == ba);
     }
 
     #[test]
@@ -636,7 +702,7 @@ mod test {
         // Then clear high bits
         z.weak_reduce();
 
-        assert!(z.equals(&MODULUS));
+        assert!(z == MODULUS);
     }
 
     #[test]
@@ -644,7 +710,7 @@ mod test {
         let bytes = [1; 56];
         let a = Fq::from_bytes(&bytes);
         let new_a = Fq::from_bytes(&a.to_bytes());
-        assert!(a.equals(&new_a));
+        assert!(a == new_a);
     }
 
     #[test]
@@ -727,36 +793,47 @@ mod test {
     }
     #[test]
     fn test_conditional_swap() {
-        let neg_one = 0xffffffff;
-
         let mut x = Fq::from(1908);
         let x_old = Fq::from(1908);
         let mut y = Fq::from(200);
         let y_old = Fq::from(200);
 
         // x and y should swap value
-        x.conditional_swap(&mut y, neg_one);
-        assert!(x.equals(&y_old));
-        assert!(y.equals(&x_old));
+        Fq::conditional_swap(&mut x, &mut y, Choice::from(1));
+        assert!(x == y_old);
+        assert!(y == x_old);
 
         // x and y should stay the same
-        x.conditional_swap(&mut y, 0);
-        assert!(x.equals(&y_old));
-        assert!(y.equals(&x_old));
+        Fq::conditional_swap(&mut x, &mut y, Choice::from(0));
+        assert!(x == y_old);
+        assert!(y == x_old);
     }
 
     #[test]
     fn test_conditional_negate() {
-        let neg_one = 0xffffffff;
-
         let mut a = Fq::from(100);
         let a_neg = a.negate();
-
-        a.conditional_negate(neg_one);
-        assert!(a.equals(&a_neg));
+        a.conditional_negate(Choice::from(1));
+        assert!(a == a_neg);
         //
         let mut b = Fq::from(200);
-        b.conditional_negate(0);
-        assert!(b.equals(&b));
+        b.conditional_negate(Choice::from(0));
+        assert!(b == Fq::from(200));
+    }
+
+    #[test]
+    fn test_sqrt_ratio() {
+        let ten = Fq::from(10);
+        let twenty = Fq::from(20);
+        let (a, is_res) = Fq::sqrt_ratio(&ten, &twenty);
+        assert!(is_res);
+
+        let (inv_ten_sqrt, is_res) = ten.inverse_square_root();
+        assert!(is_res);
+        let (inv_twenty_sqrt, is_res) = twenty.inverse_square_root();
+        assert!(is_res);
+
+        let expected = inv_ten_sqrt.invert() * inv_twenty_sqrt;
+        assert_eq!(expected, a)
     }
 }
