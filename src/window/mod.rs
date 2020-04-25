@@ -1,13 +1,12 @@
 pub mod wnaf;
 
-use crate::curve::edwards::affine::AffineNielsPoint;
+use crate::curve::twedwards::affine::AffineNielsPoint;
 use crate::field::{Fq, Scalar};
 
 const TABLE_SIZE: usize = 80;
 
 pub struct NielsTable([AffineNielsPoint; 80]);
 
-// XXX: Check if this is constant time
 // If they are the same return -1, if not return 0
 fn select_mask(index: u32, current: u32) -> u32 {
     let equals = (index == current) as u32;
@@ -86,9 +85,9 @@ mod tests {
             0x050288a8, 0x0dea434a,
         ]);
 
-        assert!(point.y_plus_x.equals(&expected_y_plus_x));
-        assert!(point.y_minus_x.equals(&expected_y_minus_x));
-        assert!(point.td.equals(&expected_td));
+        assert!(point.y_plus_x == expected_y_plus_x);
+        assert!(point.y_minus_x == expected_y_minus_x);
+        assert!(point.td == expected_td);
     }
 }
 
