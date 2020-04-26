@@ -287,11 +287,4 @@ mod tests {
 
         // XXX: Add a point that should not be on the untwisted curve
     }
-
-    #[test]
-    fn test_a() {
-        let a = 16;
-
-        dbg!((a & 3));
-    }
 }
