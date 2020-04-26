@@ -2,6 +2,7 @@ pub mod wnaf;
 
 use crate::curve::twedwards::affine::AffineNielsPoint;
 use crate::field::{Fq, Scalar};
+use subtle::{Choice, ConditionallySelectable};
 
 const TABLE_SIZE: usize = 80;
 
@@ -20,25 +21,13 @@ pub(crate) struct BaseTable {
 
 impl BaseTable {
     fn lookup(&self, index: u32) -> AffineNielsPoint {
-        let mut y_plus_x = Fq::zero();
-        let mut y_minus_x = Fq::zero();
-        let mut td = Fq::zero();
+        let mut result = AffineNielsPoint::identity();
 
         for i in 0..TABLE_SIZE {
             let m = select_mask(index, i as u32);
-
-            for j in 0..16 {
-                y_plus_x[j] |= m & self.base.0[i].y_plus_x[j];
-                y_minus_x[j] |= m & self.base.0[i].y_minus_x[j];
-                td[j] |= m & self.base.0[i].td[j];
-            }
+            result.conditional_assign(&self.base.0[i], Choice::from((m >> 31) as u8));
         }
-
-        AffineNielsPoint {
-            y_plus_x,
-            y_minus_x,
-            td,
-        }
+        result
     }
 }
 

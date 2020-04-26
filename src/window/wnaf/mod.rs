@@ -1,6 +1,7 @@
 use crate::curve::twedwards::extended::ExtendedPoint;
 use crate::curve::twedwards::projective::ProjectiveNielsPoint;
 use crate::field::Fq;
+use subtle::{Choice, ConditionallySelectable};
 
 pub(crate) const WINDOW: usize = 5;
 pub(crate) const WINDOW_MASK: usize = (1 << WINDOW) - 1;
@@ -25,23 +26,15 @@ impl From<&ExtendedPoint> for LookupTable {
 }
 
 impl LookupTable {
+    /// Selects a projective niels point from a lookup table in constant time
     pub fn select(&self, index: u32) -> ProjectiveNielsPoint {
         let index_mask = index & WINDOW_T_MASK as u32;
 
-        let mut result = ProjectiveNielsPoint {
-            Y_plus_X: Fq::zero(),
-            Y_minus_X: Fq::zero(),
-            Td: Fq::zero(),
-            Z: Fq::zero(),
-        };
+        let mut result = ProjectiveNielsPoint::identity();
+
         for i in 0..TABLE_SIZE {
             let m = super::select_mask(index_mask, i as u32);
-            for j in 0..16 {
-                result.Y_minus_X[j] |= m & self.0[i].Y_minus_X[j];
-                result.Y_plus_X[j] |= m & self.0[i].Y_plus_X[j];
-                result.Td[j] |= m & self.0[i].Td[j];
-                result.Z[j] |= m & self.0[i].Z[j];
-            }
+            result.conditional_assign(&self.0[i], Choice::from((m >> 31) as u8));
         }
         result
     }
