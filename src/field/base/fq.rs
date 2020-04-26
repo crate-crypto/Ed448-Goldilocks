@@ -169,8 +169,8 @@ impl Default for Fq {
     }
 }
 impl Fq {
-    pub(crate) fn zero() -> Fq {
-        Fq::from(0)
+    pub const fn zero() -> Fq {
+        Fq([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     }
     pub(crate) fn is_zero(&self) -> Choice {
         self.ct_eq(&Fq::zero())
@@ -250,8 +250,8 @@ impl Fq {
         (bytes[0] & 1).into()
     }
 
-    pub(crate) fn one() -> Fq {
-        Fq::from(1)
+    pub(crate) const fn one() -> Fq {
+        Fq([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     }
 
     pub(crate) fn negate(&self) -> Fq {
