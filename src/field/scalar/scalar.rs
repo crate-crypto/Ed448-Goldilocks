@@ -1,4 +1,5 @@
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
+
 /// This is the scalar field
 /// size = 4q = 2^446 - 0x8335dc163bb124b65129c96fde933d8d723a70aadc873d6d54a7bb0d
 /// We can therefore use 14 saturated 32-bit limbs
@@ -68,6 +69,49 @@ impl Scalar {
     }
     pub fn zero() -> Scalar {
         Scalar::from(0)
+    }
+    pub fn bits(&self) -> Vec<bool> {
+        let mut bits: Vec<bool> = Vec::with_capacity(14 * 32);
+        // We have 14 limbs, each 32 bits
+        // First we iterate each limb
+        for limb in self.0.iter() {
+            // Then we iterate each bit in the limb
+            for j in 0..32 {
+                bits.push(limb & (1 << j) != 0)
+            }
+        }
+
+        // XXX :We are doing LSB first
+        bits
+    }
+    pub fn from_bytes(bytes: [u8; 56]) -> Scalar {
+        let load7 = |input: &[u8]| -> u64 {
+            (input[0] as u64)
+                | ((input[1] as u64) << 8)
+                | ((input[2] as u64) << 16)
+                | ((input[3] as u64) << 24)
+        };
+
+        let mut res = Scalar::zero();
+        for i in 0..14 {
+            // Load i'th 32 bytes
+            let out = load7(&bytes[i * 4..]);
+            res[i] = out as u32;
+        }
+
+        res
+    }
+    pub(crate) fn to_bytes(&self) -> [u8; 56] {
+        let mut res = [0u8; 56];
+
+        for i in 0..14 {
+            let mut l = self.0[i];
+            for j in 0..4 {
+                res[4 * i + j] = l as u8;
+                l >>= 8;
+            }
+        }
+        res
     }
     fn square(&self) -> Scalar {
         montgomery_multiply(&self, &self)
@@ -139,6 +183,7 @@ impl Scalar {
 
         montgomery_multiply(&result, &Scalar::one())
     }
+
     fn equals(&self, rhs: &Scalar) -> bool {
         let mut diff = 0u32;
         for i in 0..14 {
@@ -360,5 +405,14 @@ mod test {
         let zero = Scalar::zero();
         let expected_zero = zero.invert();
         assert_eq!(expected_zero, zero)
+    }
+    #[test]
+    fn test_serialise() {
+        let scalar = Scalar([
+            0x15598f62, 0xb9b1ed71, 0x52fcd042, 0x862a9f10, 0x1e8a309f, 0x9988f8e0, 0xa22347d7,
+            0xe9ab2c22, 0x38363f74, 0xfd7c58aa, 0xc49a1433, 0xd9a6c4c3, 0x75d3395e, 0x0d79f6e3,
+        ]);
+        let got = Scalar::from_bytes(scalar.to_bytes());
+        assert_eq!(scalar, got)
     }
 }
