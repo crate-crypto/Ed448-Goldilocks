@@ -641,11 +641,6 @@ impl Fq {
     }
 }
 
-fn word_is_zero(word: u32) -> bool {
-    // If the word is zero, then when we minus 1, we should get 0xffffffff
-    word.wrapping_sub(1) == 0xffffffff
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
