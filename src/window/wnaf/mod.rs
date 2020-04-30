@@ -15,12 +15,15 @@ impl From<&ExtendedPoint> for LookupTable {
     fn from(point: &ExtendedPoint) -> LookupTable {
         let P = point.to_extensible();
         let P2 = P.double().to_projective_niels();
+
         let mut table = [P.to_projective_niels(); TABLE_SIZE];
         let mut p_original = point.to_extensible();
+
         for i in 1..TABLE_SIZE {
             p_original = p_original.add_projective_niels(&P2);
             table[i] = p_original.to_projective_niels();
         }
+
         LookupTable(table)
     }
 }
