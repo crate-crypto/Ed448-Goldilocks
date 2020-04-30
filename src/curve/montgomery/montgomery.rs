@@ -1,38 +1,165 @@
 use crate::curve::constants::ONE_MINUS_D;
-use crate::field::Fq;
+use crate::curve::edwards::extended::{CompressedEdwardsY, ExtendedPoint};
+use crate::field::{Fq, Scalar};
+use std::fmt;
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
-#[derive(Eq, Debug, PartialEq, Default)]
-pub struct Montgomery {
-    z0: Fq,
-    zd: Fq,
-    za: Fq,
-    xa: Fq,
-    xd: Fq,
+#[derive(Copy, Clone)]
+pub struct MontgomeryPoint(pub [u8; 56]);
+
+impl fmt::Debug for MontgomeryPoint {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        self.0[..].fmt(formatter)
+    }
 }
 
-impl Montgomery {
-    /// Montgomery Step
-    pub fn step(&mut self) {
-        let mut l0 = self.zd.add_no_reduce(&self.xd);
-        let mut l1 = self.xd - self.zd;
-        self.zd = self.xa - self.za;
-        self.xd = l0 * self.zd;
-        self.zd = self.za.add_no_reduce(&self.xa);
-        self.za = l1 * self.zd;
-        self.xa = self.za.add_no_reduce(&self.xd);
-        self.zd = self.xa.square();
-        self.xa = self.z0 * self.zd;
-        self.zd = self.xd - self.za;
-        self.za = self.zd.square();
-        self.xd = l0.square();
-        l0 = l1.square();
-        self.zd = self.xd * ONE_MINUS_D;
-        l1 = self.xd - l0;
-        self.xd = l0 * self.zd;
-        l0 = self.zd.sub_no_reduce(&l1);
-        l0.bias(2);
-        l0.weak_reduce();
-        self.zd = l0 * l1;
+impl ConstantTimeEq for MontgomeryPoint {
+    fn ct_eq(&self, other: &MontgomeryPoint) -> Choice {
+        self.0.ct_eq(&other.0)
+    }
+}
+
+impl PartialEq for MontgomeryPoint {
+    fn eq(&self, other: &MontgomeryPoint) -> bool {
+        self.ct_eq(other).into()
+    }
+}
+impl Eq for MontgomeryPoint {}
+
+#[derive(Copy, Clone)]
+pub struct ProjectiveMontgomeryPoint {
+    U: Fq,
+    W: Fq,
+}
+
+impl MontgomeryPoint {
+    pub fn to_edwards(&self, sign: i8) -> Option<ExtendedPoint> {
+        // Map is y = (u+1) / (1-u)
+
+        let u = Fq::from_bytes(&self.0);
+
+        if u == Fq::one() {
+            return None;
+        };
+
+        let one = Fq::one();
+
+        let y = (u + one) * (one - u).invert();
+        let mut compressed_bytes = [0u8; 57];
+
+        let y_bytes = y.to_bytes();
+        for i in 0..y_bytes.len() {
+            compressed_bytes[i] = y_bytes[i]
+        }
+
+        *compressed_bytes.last_mut().unwrap() = (sign << 7) as u8;
+        CompressedEdwardsY(compressed_bytes).decompress()
+    }
+
+    pub fn to_projective(&self) -> ProjectiveMontgomeryPoint {
+        ProjectiveMontgomeryPoint {
+            U: Fq::from_bytes(&self.0),
+            W: Fq::one(),
+        }
+    }
+
+    // Taken from Dalek
+    pub fn mul(&self, scalar: &Scalar) -> MontgomeryPoint {
+        // Algorithm 8 of Costello-Smith 2017
+        let affine_u = Fq::from_bytes(&self.0);
+        let mut x0 = ProjectiveMontgomeryPoint::identity();
+        let mut x1 = ProjectiveMontgomeryPoint {
+            U: affine_u,
+            W: Fq::one(),
+        };
+
+        let bits = scalar.bits();
+        let mut swap = 0;
+        for s in (0..448).rev() {
+            let bit = bits[s] as u8;
+            let choice: u8 = (swap ^ bit) as u8;
+
+            ProjectiveMontgomeryPoint::conditional_swap(&mut x0, &mut x1, Choice::from(choice));
+            differential_add_and_double(&mut x0, &mut x1, &affine_u);
+
+            swap = bit;
+        }
+
+        x0.to_affine()
+    }
+}
+
+impl ConditionallySelectable for ProjectiveMontgomeryPoint {
+    fn conditional_select(
+        a: &ProjectiveMontgomeryPoint,
+        b: &ProjectiveMontgomeryPoint,
+        choice: Choice,
+    ) -> ProjectiveMontgomeryPoint {
+        ProjectiveMontgomeryPoint {
+            U: Fq::conditional_select(&a.U, &b.U, choice),
+            W: Fq::conditional_select(&a.W, &b.W, choice),
+        }
+    }
+}
+
+// Also taken from Dalek
+fn differential_add_and_double(
+    P: &mut ProjectiveMontgomeryPoint,
+    Q: &mut ProjectiveMontgomeryPoint,
+    affine_PmQ: &Fq,
+) {
+    let a24 = ONE_MINUS_D; //39082
+
+    let t0 = P.U + P.W;
+    let t1 = P.U - P.W;
+    let t2 = Q.U + Q.W;
+    let t3 = Q.U - Q.W;
+
+    let t4 = t0.square(); // (U_P + W_P)^2 = U_P^2 + 2 U_P W_P + W_P^2
+    let t5 = t1.square(); // (U_P - W_P)^2 = U_P^2 - 2 U_P W_P + W_P^2
+
+    let t6 = t4 - t5; // 4 U_P W_P
+
+    let t7 = t0 * t3; // (U_P + W_P) (U_Q - W_Q) = U_P U_Q + W_P U_Q - U_P W_Q - W_P W_Q
+    let t8 = t1 * t2; // (U_P - W_P) (U_Q + W_Q) = U_P U_Q - W_P U_Q + U_P W_Q - W_P W_Q
+
+    let t9 = t7 + t8; // 2 (U_P U_Q - W_P W_Q)
+    let t10 = t7 - t8; // 2 (W_P U_Q - U_P W_Q)
+
+    let t11 = t9.square(); // 4 (U_P U_Q - W_P W_Q)^2
+    let t12 = t10.square(); // 4 (W_P U_Q - U_P W_Q)^2
+    let t13 = a24 * t6; // (A + 2) U_P U_Q
+
+    let t14 = t4 * t5; // ((U_P + W_P)(U_P - W_P))^2 = (U_P^2 - W_P^2)^2
+    let t15 = t13 + t5; // (U_P - W_P)^2 + (A + 2) U_P W_P
+
+    let t16 = t6 * t15; // 4 (U_P W_P) ((U_P - W_P)^2 + (A + 2) U_P W_P)
+    let t17 = *affine_PmQ * t12; // U_D * 4 (W_P U_Q - U_P W_Q)^2
+    let t18 = t11; // W_D * 4 (U_P U_Q - W_P W_Q)^2
+
+    P.U = t14; // U_{P'} = (U_P + W_P)^2 (U_P - W_P)^2
+    P.W = t16; // W_{P'} = (4 U_P W_P) ((U_P - W_P)^2 + ((A + 2)/4) 4 U_P W_P)
+    Q.U = t18; // U_{Q'} = W_D * 4 (U_P U_Q - W_P W_Q)^2
+    Q.W = t17; // W_{Q'} = U_D * 4 (W_P U_Q - U_P W_Q)^2
+}
+
+impl ProjectiveMontgomeryPoint {
+    pub fn identity() -> ProjectiveMontgomeryPoint {
+        ProjectiveMontgomeryPoint {
+            U: Fq::one(),
+            W: Fq::zero(),
+        }
+    }
+
+    pub fn to_affine(&self) -> MontgomeryPoint {
+        let x = self.U * self.W.invert();
+        MontgomeryPoint(x.to_bytes())
+    }
+    pub fn double(&self) -> ProjectiveMontgomeryPoint {
+        todo!()
+    }
+    pub fn add(&self, other: &ProjectiveMontgomeryPoint) -> ProjectiveMontgomeryPoint {
+        todo!()
     }
 }
 
@@ -40,13 +167,7 @@ impl Montgomery {
 mod tests {
 
     use super::*;
-    use std::num::ParseIntError;
-    fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-            .collect()
-    }
+    use hex::decode as hex_decode;
 
     fn slice_to_fixed_array(b: &[u8]) -> [u8; 56] {
         let mut a: [u8; 56] = [0; 56];
@@ -54,44 +175,36 @@ mod tests {
         a
     }
 
-    fn hex_to_fq(hex: &str) -> Fq {
-        let mut bytes = decode_hex(hex).unwrap();
-        bytes.reverse();
-        Fq::from_bytes(&slice_to_fixed_array(&bytes))
+    fn hex_to_array(data: &str) -> [u8; 56] {
+        let mut bytes = hex_decode(data).unwrap();
+        slice_to_fixed_array(&bytes)
     }
 
-    #[test]
-    fn test_step() {
-        let z0 = hex_to_fq("e281b05e4051a52b331430897d9d950529a46637d3ca1f45e1d2dc4fbd164c956f25dd0cf30458b4129e900faa2ba9b8d305dc4ae1e1b343");
-        let xd = hex_to_fq("dc7c2264cf2a3f6178ee7884793f2d0cfe98e602c32adfbec9a5fc225c904f5e1f45c614fc483aec252745e04a38f49e1a4cfc0e8bbf14c5");
-        let zd = hex_to_fq("76ad01dbfd7dd72671ad1f827b762fe0c39c808084533b1e22ee18537b7e43c75b995f9e107ec055fbb3df4fb83ad78e69de76a188fb6db6");
-        let xa = hex_to_fq("86032c9f990e2680726003f62a1ec5c01f18ad130ce0883b247d2ea9e8d591e6121e6007027d44d94d9659a05fb47e91c3c11b5552cb2185");
-        let za = hex_to_fq("5c157ed45b60be2db18a494780b5b7ab79ae1afc3919c9b00c1879495ea079b73990eebf5f0def2897fe8ca78084c07ef89c5bfc336625fd");
-        let mut montgomery = Montgomery { z0, xd, zd, xa, za };
-        montgomery.step();
-        let expected_z0 = hex_to_fq("e281b05e4051a52b331430897d9d950529a46637d3ca1f45e1d2dc4fbd164c956f25dd0cf30458b4129e900faa2ba9b8d305dc4ae1e1b343");
-        let expected_xd = hex_to_fq("c88f896abf42ca2cbff1edf881d1246ee76abe7385932d7b54fb9d71307fdd8043d8a80c7d0363e7a45443d4e9a03bf3e0aab82fb4714c5f");
-        let expected_zd = hex_to_fq("962fa8b019eeedd607eda6b44454e17b76b1536f6b336362257d72c3c1576339514f1f4d2d0ae7b0680469a432a2f54cb7f9dbc14473802d");
-        let expected_xa = hex_to_fq("09e41fe2e74667a6676fb0492b496f7d69d45055601ec86839b95e9343407ed592ea357118e5568eea272e9349adf0efbe29307187cfff6e");
-        let expected_za = hex_to_fq("b115a615745fc6f453a43d1466e12acd2215ac373cadcd633211235510c6a04c4f041006d07f543f2bd4b050ecdd472be4415ab7a3f79f95");
-
-        let expected_montgomery = Montgomery {
-            z0: expected_z0,
-            xd: expected_xd,
-            zd: expected_zd,
-            xa: expected_xa,
-            za: expected_za,
-        };
-
-        assert_eq!(montgomery, expected_montgomery);
+    fn clamp(scalar: &mut [u8; 56]) {
+        scalar[0] &= 252;
+        scalar[55] |= 128;
     }
 
+    // This will not stay here, it's only here so that we can be sure that the Ladder is being computed correctly
     #[test]
-    fn test_default_behaviour() {
-        let default_montgomery = Montgomery::default();
-        assert_eq!(default_montgomery, Montgomery {
-            z0: Fq::zero(), zd: Fq::zero(), za: Fq::zero(),
-            xa: Fq::zero(), xd: Fq::zero()
-        });
+    fn test_rfc_vector() {
+        // Load RFC basepoint
+        let point_bytes = hex_to_array("0500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+        let point = MontgomeryPoint(point_bytes);
+
+        // Clamp Scalar
+        let mut scalar_bytes = hex_to_array("9a8f4925d1519f5775cf46b04b5800d4ee9ee8bae8bc5565d498c28dd9c9baf574a9419744897391006382a6f127ab1d9ac2d8c0a598726b");
+        clamp(&mut scalar_bytes);
+
+        // Load RFC scalar
+        let scalar = Scalar::from_bytes(scalar_bytes);
+
+        // Compute output
+        let output = point.mul(&scalar);
+
+        // Expected output
+        let expected = hex_to_array("9b08f7cc31b7e3e67d22d5aea121074a273bd2b83de09c63faa73d2c22c5d9bbc836647241d953d40c5b12da88120d53177f80e532c41fa0");
+
+        assert_eq!(&output.0[..], &expected[..]);
     }
 }

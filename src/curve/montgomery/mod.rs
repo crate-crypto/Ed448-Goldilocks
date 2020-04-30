@@ -1,1 +1,1 @@
-mod montgomery;
+pub(crate) mod montgomery;
