@@ -1,7 +1,7 @@
 use crate::curve::constants::EDWARDS_D;
 use crate::curve::twedwards::{extended::ExtendedPoint, extensible::ExtensiblePoint};
 use crate::field::base::Fq;
-
+use subtle::{Choice, ConditionallySelectable};
 #[derive(PartialEq, Eq)]
 pub struct AffinePoint {
     pub(crate) x: Fq,
@@ -71,10 +71,21 @@ impl AffinePoint {
     }
 }
 // ((y+x)/2, (y-x)/2, dxy)
+#[derive(Copy, Clone)]
 pub struct AffineNielsPoint {
     pub(crate) y_plus_x: Fq,
     pub(crate) y_minus_x: Fq,
     pub(crate) td: Fq,
+}
+
+impl ConditionallySelectable for AffineNielsPoint {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        AffineNielsPoint {
+            y_plus_x: Fq::conditional_select(&a.y_plus_x, &b.y_plus_x, choice),
+            y_minus_x: Fq::conditional_select(&a.y_minus_x, &b.y_minus_x, choice),
+            td: Fq::conditional_select(&a.td, &b.td, choice),
+        }
+    }
 }
 
 impl AffineNielsPoint {

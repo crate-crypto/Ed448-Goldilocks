@@ -18,6 +18,17 @@ pub struct ProjectiveNielsPoint {
     pub(crate) Z: Fq,
 }
 
+impl ConditionallySelectable for ProjectiveNielsPoint {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        ProjectiveNielsPoint {
+            Y_plus_X: Fq::conditional_select(&a.Y_plus_X, &b.Y_plus_X, choice),
+            Y_minus_X: Fq::conditional_select(&a.Y_minus_X, &b.Y_minus_X, choice),
+            Td: Fq::conditional_select(&a.Td, &b.Td, choice),
+            Z: Fq::conditional_select(&a.Z, &b.Z, choice),
+        }
+    }
+}
+
 impl ProjectiveNielsPoint {
     pub fn identity() -> ProjectiveNielsPoint {
         ProjectiveNielsPoint {

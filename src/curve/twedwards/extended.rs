@@ -3,7 +3,7 @@ use crate::curve::edwards::ExtendedPoint as EdwardsExtendedPoint;
 use crate::curve::twedwards::affine::AffinePoint;
 use crate::curve::twedwards::extensible::ExtensiblePoint;
 use crate::field::base::Fq;
-use subtle::{Choice, ConstantTimeEq};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 #[derive(Copy, Clone, Debug)]
 //XXX: ExtendedProjectivePoint
@@ -23,6 +23,16 @@ impl ConstantTimeEq for ExtendedPoint {
         let ZY = self.Z * other.Y;
 
         (XZ.ct_eq(&ZX)) & (YZ.ct_eq(&ZY))
+    }
+}
+impl ConditionallySelectable for ExtendedPoint {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        ExtendedPoint {
+            X: Fq::conditional_select(&a.X, &b.X, choice),
+            Y: Fq::conditional_select(&a.Y, &b.Y, choice),
+            Z: Fq::conditional_select(&a.Z, &b.Z, choice),
+            T: Fq::conditional_select(&a.T, &b.T, choice),
+        }
     }
 }
 
@@ -52,6 +62,9 @@ impl ExtendedPoint {
 
     pub(crate) fn double(&self) -> ExtendedPoint {
         self.to_extensible().double().to_extended()
+    }
+    pub(crate) fn add(&self, other: &ExtendedPoint) -> ExtendedPoint {
+        self.to_extensible().add_extended(other).to_extended()
     }
 
     pub fn to_extensible(&self) -> ExtensiblePoint {
