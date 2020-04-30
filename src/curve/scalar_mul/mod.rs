@@ -1,7 +1,7 @@
 use crate::curve::twedwards::extended::ExtendedPoint;
 use crate::curve::twedwards::extensible::ExtensiblePoint;
 use crate::field::Scalar;
-use subtle::Choice;
+use subtle::{Choice, ConditionallySelectable};
 // XXX: This is _almost_ unreadable, we will slowly refactor for interoperability
 pub fn scalar_mul(point: &ExtendedPoint, s: &Scalar) -> ExtendedPoint {
     use crate::window::wnaf;
@@ -41,7 +41,23 @@ pub fn scalar_mul(point: &ExtendedPoint, s: &Scalar) -> ExtendedPoint {
     result.to_extended()
 }
 
-// TODO: do Montgomery Scalar Mul
+// used mainly to test the correctness of the more complicated algorithms
+pub(crate) fn double_add(point: &ExtendedPoint, s: &Scalar) -> ExtendedPoint {
+    let mut result = ExtendedPoint::identity();
+
+    // NB, we reverse here, so we are going from MSB to LSB
+    // XXX: Would be great if subtle had a From<u32> for Choice. But maybe that is not it's purpose?
+    for bit in s.bits().into_iter().rev() {
+        result = result.double();
+
+        let mut p = ExtendedPoint::identity();
+        p.conditional_assign(point, Choice::from(bit as u8));
+        result = result.add(&p);
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -100,6 +116,9 @@ mod test {
         let got = scalar_mul(&twisted_point, &scalar);
         assert!(expected_twisted_point == got);
 
+        let got2 = double_add(&twisted_point, &scalar);
+        assert_eq!(got2, got2);
+
         // Lets see if this is conserved over the isogenies
         let edwards_point = twisted_point.to_untwisted();
         let got_untwisted_point = edwards_point.scalar_mul(&scalar);
@@ -135,7 +154,6 @@ mod test {
         // Test that 1 * P = P
         let exp = scalar_mul(&x, &Scalar::from(1));
         assert!(x == exp);
-
         // Test that 2 * (P + P) = 4 * P
         let x_ext = x.to_extensible();
         let expected_two_x = x_ext.add_extensible(&x_ext).double();
