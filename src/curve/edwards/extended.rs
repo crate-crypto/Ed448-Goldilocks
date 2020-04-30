@@ -1,9 +1,9 @@
 use crate::curve::constants::EDWARDS_D;
 use crate::curve::edwards::affine::AffinePoint;
+use crate::curve::montgomery::montgomery::MontgomeryPoint; // XXX: need to fix this path
 use crate::curve::twedwards::extended::ExtendedPoint as TwistedExtendedPoint;
 use crate::field::base::Fq;
 use crate::field::Scalar;
-
 use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
 /// Represent points on the (untwisted) edwards curve using Extended Homogenous Projective Co-ordinates
 /// (x, y) -> (X/Z, Y/Z, Z, T)
@@ -20,7 +20,7 @@ pub struct ExtendedPoint {
     pub(crate) T: Fq,
 }
 
-pub struct CompressedEdwardsY([u8; 57]);
+pub struct CompressedEdwardsY(pub [u8; 57]);
 
 impl CompressedEdwardsY {
     pub fn decompress(&self) -> Option<ExtendedPoint> {
@@ -93,6 +93,15 @@ impl ExtendedPoint {
             Z: Fq::one(),
             T: Fq::zero(),
         }
+    }
+
+    pub fn to_montgomery(&self) -> MontgomeryPoint {
+        // u = y-1/y+1
+
+        let U = self.Z + self.Y;
+        let W = self.Z - self.Y;
+        let u = U * W.invert();
+        MontgomeryPoint(u.to_bytes())
     }
 
     // Since we do not know whether the point p is in the prime subgroup, we need to mul by floor(s/4)
