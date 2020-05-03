@@ -34,9 +34,10 @@ Deviating from Curve25519-Dalek, this library will implement Extensible points i
 
 ## Interesting Notes
 
-
 Goldilocks is defined using an untwisted edwards curve, Curve25519 is defined using a Montgomery Curve. Both use an isogeny to compute the corresponding Twisted Edwards  
 
 Perhaps for interopability in naming:
 
 - CurveXXX = MontgomeryCurve
+
+## DONT FORGET CREDITS FOR DESIGN(DALEK) AND MOTGOMERY CODE AND MIKE
