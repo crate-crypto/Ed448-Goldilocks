@@ -1,5 +1,7 @@
 // Move all curve specific constants into this file
 // as they will have different representations depending on the backend
+use crate::curve::edwards::ExtendedPoint;
+use crate::curve::twedwards::extended::ExtendedPoint as TwExtendedPoint;
 use crate::field::u32::Fq;
 
 // -4 * Twised_D = -4 * (EDWARDS_D-1)
@@ -44,3 +46,37 @@ pub const DECAF_FACTOR: Fq = Fq([
 ]);
 /// 39082 used in the doubling procedure in montgomery ladder
 pub const A_PLUS_TWO_OVER_FOUR: Fq = ONE_MINUS_D;
+
+// The basepoint of Ed448-Goldilocks
+pub const GOLDILOCKS_BASE_POINT: ExtendedPoint = ExtendedPoint {
+    X: Fq([
+        118276190, 40534716, 9670182, 135141552, 85017403, 259173222, 68333082, 171784774,
+        174973732, 15824510, 73756743, 57518561, 94773951, 248652241, 107736333, 82941708,
+    ]),
+    Y: Fq([
+        36764180, 8885695, 130592152, 20104429, 163904957, 30304195, 121295871, 5901357, 125344798,
+        171541512, 175338348, 209069246, 3626697, 38307682, 24032956, 110359655,
+    ]),
+    Z: Fq([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    T: Fq([
+        45061619, 6694120, 103620075, 168286294, 228718479, 151739175, 150043102, 237197013,
+        14095975, 138747174, 90839103, 152869968, 221073549, 114093113, 183378460, 209054552,
+    ]),
+};
+
+// The basepoint of the Twisted Edwards curve which is 2-isogenous to Ed448-Goldilocks
+pub const TWISTED_EDWARDS_BASE_POINT: TwExtendedPoint = TwExtendedPoint {
+    X: Fq([
+        0, 268435456, 268435455, 268435455, 268435455, 268435455, 268435455, 134217727, 268435454,
+        268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 134217727,
+    ]),
+    Y: Fq([
+        266160740, 101161805, 74490312, 12706731, 149232027, 72184820, 68425752, 84169329,
+        64300076, 80170041, 105082960, 37781586, 19953866, 222875756, 82854534, 139496929,
+    ]),
+    Z: Fq([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    T: Fq([
+        202998021, 238846317, 66379923, 102789507, 54662147, 81652110, 85576069, 171023191,
+        104342404, 127188629, 141403663, 236837931, 109226495, 84812757, 24364708, 114517662,
+    ]),
+};
