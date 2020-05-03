@@ -1,6 +1,6 @@
 use crate::curve::constants::ONE_MINUS_D;
 use crate::curve::edwards::extended::{CompressedEdwardsY, ExtendedPoint};
-use crate::field::{Fq, Scalar};
+use crate::field::{FieldElement, Scalar};
 use std::fmt;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
@@ -28,49 +28,32 @@ impl Eq for MontgomeryPoint {}
 
 #[derive(Copy, Clone)]
 pub struct ProjectiveMontgomeryPoint {
-    U: Fq,
-    W: Fq,
+    U: FieldElement,
+    W: FieldElement,
 }
 
 impl MontgomeryPoint {
-    pub fn to_edwards(&self, sign: i8) -> Option<ExtendedPoint> {
-        // Map is y = (u+1) / (1-u)
-
-        let u = Fq::from_bytes(&self.0);
-
-        if u == Fq::one() {
-            return None;
-        };
-
-        let one = Fq::one();
-
-        let y = (u + one) * (one - u).invert();
-        let mut compressed_bytes = [0u8; 57];
-
-        let y_bytes = y.to_bytes();
-        for i in 0..y_bytes.len() {
-            compressed_bytes[i] = y_bytes[i]
-        }
-
-        *compressed_bytes.last_mut().unwrap() = (sign << 7) as u8;
-        CompressedEdwardsY(compressed_bytes).decompress()
+    pub fn to_edwards(&self, sign: u8) -> Option<ExtendedPoint> {
+        // We use the 4-isogeny to map to the Ed448.
+        // This is different to Curve25519, where we use a birational map.
+        todo!()
     }
 
     pub fn to_projective(&self) -> ProjectiveMontgomeryPoint {
         ProjectiveMontgomeryPoint {
-            U: Fq::from_bytes(&self.0),
-            W: Fq::one(),
+            U: FieldElement::from_bytes(&self.0),
+            W: FieldElement::one(),
         }
     }
 
     // Taken from Dalek
     pub fn mul(&self, scalar: &Scalar) -> MontgomeryPoint {
         // Algorithm 8 of Costello-Smith 2017
-        let affine_u = Fq::from_bytes(&self.0);
+        let affine_u = FieldElement::from_bytes(&self.0);
         let mut x0 = ProjectiveMontgomeryPoint::identity();
         let mut x1 = ProjectiveMontgomeryPoint {
             U: affine_u,
-            W: Fq::one(),
+            W: FieldElement::one(),
         };
 
         let bits = scalar.bits();
@@ -96,8 +79,8 @@ impl ConditionallySelectable for ProjectiveMontgomeryPoint {
         choice: Choice,
     ) -> ProjectiveMontgomeryPoint {
         ProjectiveMontgomeryPoint {
-            U: Fq::conditional_select(&a.U, &b.U, choice),
-            W: Fq::conditional_select(&a.W, &b.W, choice),
+            U: FieldElement::conditional_select(&a.U, &b.U, choice),
+            W: FieldElement::conditional_select(&a.W, &b.W, choice),
         }
     }
 }
@@ -106,7 +89,7 @@ impl ConditionallySelectable for ProjectiveMontgomeryPoint {
 fn differential_add_and_double(
     P: &mut ProjectiveMontgomeryPoint,
     Q: &mut ProjectiveMontgomeryPoint,
-    affine_PmQ: &Fq,
+    affine_PmQ: &FieldElement,
 ) {
     let a24 = ONE_MINUS_D; //39082
 
@@ -146,8 +129,8 @@ fn differential_add_and_double(
 impl ProjectiveMontgomeryPoint {
     pub fn identity() -> ProjectiveMontgomeryPoint {
         ProjectiveMontgomeryPoint {
-            U: Fq::one(),
-            W: Fq::zero(),
+            U: FieldElement::one(),
+            W: FieldElement::zero(),
         }
     }
 
@@ -191,20 +174,15 @@ mod tests {
         // Load RFC basepoint
         let point_bytes = hex_to_array("0500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
         let point = MontgomeryPoint(point_bytes);
-
         // Clamp Scalar
         let mut scalar_bytes = hex_to_array("9a8f4925d1519f5775cf46b04b5800d4ee9ee8bae8bc5565d498c28dd9c9baf574a9419744897391006382a6f127ab1d9ac2d8c0a598726b");
         clamp(&mut scalar_bytes);
-
         // Load RFC scalar
         let scalar = Scalar::from_bytes(scalar_bytes);
-
         // Compute output
         let output = point.mul(&scalar);
-
         // Expected output
         let expected = hex_to_array("9b08f7cc31b7e3e67d22d5aea121074a273bd2b83de09c63faa73d2c22c5d9bbc836647241d953d40c5b12da88120d53177f80e532c41fa0");
-
         assert_eq!(&output.0[..], &expected[..]);
     }
 }

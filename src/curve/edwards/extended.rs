@@ -2,7 +2,7 @@ use crate::curve::constants::EDWARDS_D;
 use crate::curve::edwards::affine::AffinePoint;
 use crate::curve::montgomery::montgomery::MontgomeryPoint; // XXX: need to fix this path
 use crate::curve::twedwards::extended::ExtendedPoint as TwistedExtendedPoint;
-use crate::field::base::Fq;
+use crate::field::FieldElement;
 use crate::field::Scalar;
 use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
 /// Represent points on the (untwisted) edwards curve using Extended Homogenous Projective Co-ordinates
@@ -14,10 +14,10 @@ use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
 /// Should this be renamed to EdwardsPoint so that we are consistent with Dalek crypto?
 #[derive(Copy, Clone, Debug)]
 pub struct ExtendedPoint {
-    pub(crate) X: Fq,
-    pub(crate) Y: Fq,
-    pub(crate) Z: Fq,
-    pub(crate) T: Fq,
+    pub(crate) X: FieldElement,
+    pub(crate) Y: FieldElement,
+    pub(crate) Z: FieldElement,
+    pub(crate) T: FieldElement,
 }
 
 pub struct CompressedEdwardsY(pub [u8; 57]);
@@ -31,13 +31,13 @@ impl CompressedEdwardsY {
             y_bytes.copy_from_slice(&b);
 
             // Recover x
-            let y = Fq::from_bytes(&y_bytes);
+            let y = FieldElement::from_bytes(&y_bytes);
             let yy = y.square();
             let dyy = EDWARDS_D * yy;
-            let numerator = Fq::one() - yy;
-            let denominator = Fq::one() - dyy;
+            let numerator = FieldElement::one() - yy;
+            let denominator = FieldElement::one() - dyy;
 
-            let (mut x, is_res) = Fq::sqrt_ratio(&numerator, &denominator);
+            let (mut x, is_res) = FieldElement::sqrt_ratio(&numerator, &denominator);
             if !is_res {
                 return None;
             }
@@ -50,7 +50,7 @@ impl CompressedEdwardsY {
             return Some(ExtendedPoint {
                 X: x,
                 Y: y,
-                Z: Fq::one(),
+                Z: FieldElement::one(),
                 T: x * y,
             });
         } else {
@@ -88,19 +88,23 @@ impl ExtendedPoint {
     /// Identity point
     pub fn identity() -> ExtendedPoint {
         ExtendedPoint {
-            X: Fq::zero(),
-            Y: Fq::one(),
-            Z: Fq::one(),
-            T: Fq::zero(),
+            X: FieldElement::zero(),
+            Y: FieldElement::one(),
+            Z: FieldElement::one(),
+            T: FieldElement::zero(),
         }
     }
 
     pub fn to_montgomery(&self) -> MontgomeryPoint {
-        // u = y-1/y+1
+        // u = Y^2 / X^2
 
-        let U = self.Z + self.Y;
-        let W = self.Z - self.Y;
-        let u = U * W.invert();
+        let affine = self.to_affine();
+
+        let xx = affine.x.square();
+        let yy = affine.y.square();
+
+        let u = yy * xx.invert();
+
         MontgomeryPoint(u.to_bytes())
     }
 
@@ -115,8 +119,6 @@ impl ExtendedPoint {
 
         // // Compute s mod 4
         // let s_mod_four = Scalar::from(scalar[0] & 3);
-
-        // // Compute (s mod 4) * P
 
         partial_result
     }
@@ -207,7 +209,7 @@ impl ExtendedPoint {
     /// Edwards_Isogeny is derived from the doubling formula
     /// XXX: There is a duplicate method in the twisted edwards module to compute the dual isogeny
     /// XXX: Not much point trying to make it generic I think. So what we can do is optimise each respective isogeny method for a=1 or a = -1 (currently, I just made it really slow and simple)
-    fn edwards_isogeny(&self, a: Fq) -> TwistedExtendedPoint {
+    fn edwards_isogeny(&self, a: FieldElement) -> TwistedExtendedPoint {
         // Convert to affine now, then derive extended version later
         let affine = self.to_affine();
         let x = affine.x;
@@ -221,18 +223,18 @@ impl ExtendedPoint {
 
         // Compute y
         let y_numerator = y.square() + (a * x.square());
-        let y_denom = Fq::from(2) - y.square() - (a * x.square());
+        let y_denom = (FieldElement::one() + FieldElement::one()) - y.square() - (a * x.square());
         let new_y = y_numerator * y_denom.invert();
 
         TwistedExtendedPoint {
             X: new_x,
             Y: new_y,
-            Z: Fq::one(),
+            Z: FieldElement::one(),
             T: new_x * new_y,
         }
     }
     pub fn to_twisted(&self) -> TwistedExtendedPoint {
-        self.edwards_isogeny(Fq::one())
+        self.edwards_isogeny(FieldElement::one())
     }
 
     pub fn negate(&self) -> ExtendedPoint {
@@ -263,30 +265,30 @@ mod tests {
         a
     }
 
-    fn hex_to_fq(data: &str) -> Fq {
+    fn hex_to_field(data: &str) -> FieldElement {
         let mut bytes = hex_decode(data).unwrap();
         bytes.reverse();
-        Fq::from_bytes(&slice_to_fixed_array(&bytes))
+        FieldElement::from_bytes(&slice_to_fixed_array(&bytes))
     }
     #[test]
     fn test_isogeny() {
-        let x  = hex_to_fq("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
-        let y  = hex_to_fq("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
+        let x  = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
+        let y  = hex_to_field("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
         let a = AffinePoint { x, y }.to_extended();
         let twist_a = a.to_twisted().to_untwisted();
         assert!(twist_a == a.double().double())
     }
     #[test]
     fn test_is_on_curve() {
-        let x  = hex_to_fq("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
-        let y  = hex_to_fq("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
+        let x  = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
+        let y  = hex_to_field("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
         let gen = AffinePoint { x, y }.to_extended();
         assert!(gen.is_on_curve());
     }
     #[test]
     fn test_compress_decompress() {
-        let x  = hex_to_fq("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
-        let y  = hex_to_fq("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
+        let x  = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
+        let y  = hex_to_field("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
         let gen = AffinePoint { x, y }.to_extended();
 
         let decompressed_point = gen.compress().decompress();

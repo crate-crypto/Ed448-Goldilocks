@@ -1,5 +1,5 @@
 use crate::curve::edwards::ExtendedPoint;
-use crate::field::base::Fq;
+use crate::field::FieldElement;
 use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable};
 
 impl Default for ProjectiveNielsPoint {
@@ -12,19 +12,19 @@ impl Default for ProjectiveNielsPoint {
 // ((y+x)/2, (y-x)/2, dxy, Z)
 #[derive(Copy, Clone)]
 pub struct ProjectiveNielsPoint {
-    pub(crate) Y_plus_X: Fq,
-    pub(crate) Y_minus_X: Fq,
-    pub(crate) Td: Fq,
-    pub(crate) Z: Fq,
+    pub(crate) Y_plus_X: FieldElement,
+    pub(crate) Y_minus_X: FieldElement,
+    pub(crate) Td: FieldElement,
+    pub(crate) Z: FieldElement,
 }
 
 impl ConditionallySelectable for ProjectiveNielsPoint {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         ProjectiveNielsPoint {
-            Y_plus_X: Fq::conditional_select(&a.Y_plus_X, &b.Y_plus_X, choice),
-            Y_minus_X: Fq::conditional_select(&a.Y_minus_X, &b.Y_minus_X, choice),
-            Td: Fq::conditional_select(&a.Td, &b.Td, choice),
-            Z: Fq::conditional_select(&a.Z, &b.Z, choice),
+            Y_plus_X: FieldElement::conditional_select(&a.Y_plus_X, &b.Y_plus_X, choice),
+            Y_minus_X: FieldElement::conditional_select(&a.Y_minus_X, &b.Y_minus_X, choice),
+            Td: FieldElement::conditional_select(&a.Td, &b.Td, choice),
+            Z: FieldElement::conditional_select(&a.Z, &b.Z, choice),
         }
     }
 }
@@ -32,17 +32,17 @@ impl ConditionallySelectable for ProjectiveNielsPoint {
 impl ProjectiveNielsPoint {
     pub fn identity() -> ProjectiveNielsPoint {
         ProjectiveNielsPoint {
-            Y_plus_X: Fq::one(),
-            Y_minus_X: Fq::one(),
-            Td: Fq::zero(),
-            Z: Fq::one(),
+            Y_plus_X: FieldElement::one(),
+            Y_minus_X: FieldElement::one(),
+            Td: FieldElement::zero(),
+            Z: FieldElement::one(),
         }
     }
     pub fn to_extended(&self) -> ExtendedPoint {
         let two_y = self.Y_plus_X + self.Y_minus_X;
         let two_x = self.Y_plus_X - self.Y_minus_X;
 
-        assert_ne!(self.Z, Fq::zero());
+        assert_ne!(self.Z, FieldElement::zero());
 
         let T = two_y * two_x;
         let X = self.Z * two_x;
@@ -55,7 +55,7 @@ impl ProjectiveNielsPoint {
     // XXX: Code duplication here as AffineNielsPoint also has this.
     // We can switch it out once ScalarMul get refactored
     pub fn conditional_negate(&mut self, choice: Choice) {
-        Fq::conditional_swap(&mut self.Y_minus_X, &mut self.Y_plus_X, choice);
+        FieldElement::conditional_swap(&mut self.Y_minus_X, &mut self.Y_plus_X, choice);
         self.Td.conditional_negate(choice);
     }
 }
@@ -70,18 +70,18 @@ mod tests {
         a
     }
 
-    fn hex_to_fq(data: &str) -> Fq {
+    fn hex_to_field(data: &str) -> FieldElement {
         let mut bytes = hex_decode(data).unwrap();
         bytes.reverse();
-        Fq::from_bytes(&slice_to_fixed_array(&bytes))
+        FieldElement::from_bytes(&slice_to_fixed_array(&bytes))
     }
 
     #[test]
     fn test_conditional_negate() {
-        let Y_minus_X = hex_to_fq("4b8a632c1feab72769cd96e7aaa577861871b3613945c802b89377e8b85331ecc0ffb1cb20169bfc9c27274d38b0d01e87a1d5d851770bc8");
-        let Y_plus_X = hex_to_fq("81a45f02f41053f8d7d2a1f176a340529b33b7ee4d3fa84de384b750b35a54c315bf36c41d023ade226449916e668396589ea2145da09b95");
-        let Td = hex_to_fq("5f5a2b06a2dbf7136f8dc979fd54d631ca7de50397250a196d3be2a721ab7cbaa92c545d9b15b5319e11b64bc031666049d8637e13838b3b");
-        let Z = Fq::one();
+        let Y_minus_X = hex_to_field("4b8a632c1feab72769cd96e7aaa577861871b3613945c802b89377e8b85331ecc0ffb1cb20169bfc9c27274d38b0d01e87a1d5d851770bc8");
+        let Y_plus_X = hex_to_field("81a45f02f41053f8d7d2a1f176a340529b33b7ee4d3fa84de384b750b35a54c315bf36c41d023ade226449916e668396589ea2145da09b95");
+        let Td = hex_to_field("5f5a2b06a2dbf7136f8dc979fd54d631ca7de50397250a196d3be2a721ab7cbaa92c545d9b15b5319e11b64bc031666049d8637e13838b3b");
+        let Z = FieldElement::one();
 
         let mut n = ProjectiveNielsPoint {
             Y_plus_X,

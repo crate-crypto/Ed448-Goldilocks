@@ -1,24 +1,24 @@
 use crate::curve::edwards::ExtendedPoint;
-use crate::field::Fq;
+use crate::field::FieldElement;
 // Affine point on untwisted curve
 // XXX: This is only really needed for convenience in extended.rs . Will remove it sooner or later
 pub struct AffinePoint {
-    pub(crate) x: Fq,
-    pub(crate) y: Fq,
+    pub(crate) x: FieldElement,
+    pub(crate) y: FieldElement,
 }
 
 impl AffinePoint {
     pub fn identity() -> AffinePoint {
         AffinePoint {
-            x: Fq::zero(),
-            y: Fq::one(),
+            x: FieldElement::zero(),
+            y: FieldElement::one(),
         }
     }
     pub fn to_extended(&self) -> ExtendedPoint {
         ExtendedPoint {
             X: self.x,
             Y: self.y,
-            Z: Fq::one(),
+            Z: FieldElement::one(),
             T: self.x * self.y,
         }
     }

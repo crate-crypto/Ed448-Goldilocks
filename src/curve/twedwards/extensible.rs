@@ -2,7 +2,7 @@ use crate::curve::constants::{TWO_D_MINUS_ONE, TWO_ONE_MINUS_D};
 use crate::curve::twedwards::{
     affine::AffineNielsPoint, extended::ExtendedPoint, projective::ProjectiveNielsPoint,
 };
-use crate::field::base::Fq;
+use crate::field::FieldElement;
 use subtle::{Choice, ConstantTimeEq};
 
 // In affine (x,y) is the extensible point (X, Y, Z, T1, T2)
@@ -10,11 +10,11 @@ use subtle::{Choice, ConstantTimeEq};
 // XXX: I think we have too many point representations,
 // But let's not remove any yet
 pub struct ExtensiblePoint {
-    pub(crate) X: Fq,
-    pub(crate) Y: Fq,
-    pub(crate) Z: Fq,
-    pub(crate) T1: Fq,
-    pub(crate) T2: Fq,
+    pub(crate) X: FieldElement,
+    pub(crate) Y: FieldElement,
+    pub(crate) Z: FieldElement,
+    pub(crate) T1: FieldElement,
+    pub(crate) T2: FieldElement,
 }
 
 impl ConstantTimeEq for ExtensiblePoint {
@@ -38,11 +38,11 @@ impl Eq for ExtensiblePoint {}
 impl ExtensiblePoint {
     pub fn identity() -> ExtensiblePoint {
         ExtensiblePoint {
-            X: Fq::zero(),
-            Y: Fq::one(),
-            Z: Fq::one(),
-            T1: Fq::zero(),
-            T2: Fq::zero(),
+            X: FieldElement::zero(),
+            Y: FieldElement::one(),
+            Z: FieldElement::one(),
+            T1: FieldElement::zero(),
+            T2: FieldElement::zero(),
         }
     }
 
@@ -56,27 +56,22 @@ impl ExtensiblePoint {
         (ZX == XZ) && (ZY == YZ)
     }
 
-    //4S, 3M - Same as projective
-    //https://eprint.iacr.org/2008/013.pdf
     pub fn double(&self) -> ExtensiblePoint {
         let XX = self.X.square();
         let YY = self.Y.square();
+
         let XX_plus_YY = XX.add_no_reduce(&YY);
         let YY_minus_XX = YY - XX;
         let Y_plus_X = self.Y.add_no_reduce(&self.X);
         let Y_plus_X2 = Y_plus_X.square();
 
-        let mut T1 = Y_plus_X2.sub_no_reduce(&XX_plus_YY);
-        T1.bias(3);
-        T1.weak_reduce();
+        let T1 = Y_plus_X2 - (XX_plus_YY);
 
-        let mut ZZ = self.Z.square();
-        ZZ.bias(1);
+        let ZZ = self.Z.square();
 
-        let ZZ_plus_ZZ = ZZ.add_no_reduce(&ZZ);
+        let ZZ_plus_ZZ = ZZ + (ZZ);
 
-        let mut ZZ_YY_XX = ZZ_plus_ZZ.sub_no_reduce(&YY_minus_XX);
-        ZZ_YY_XX.weak_reduce();
+        let ZZ_YY_XX = ZZ_plus_ZZ - (YY_minus_XX);
 
         let Z = ZZ_YY_XX * YY_minus_XX;
         let X = ZZ_YY_XX * T1;
@@ -101,7 +96,12 @@ impl ExtensiblePoint {
 
         let mut result = ExtensiblePoint::identity();
 
-        let (mut a, mut b, mut c, mut d) = (Fq::zero(), Fq::zero(), Fq::zero(), Fq::zero());
+        let (mut a, mut b, mut c, mut d) = (
+            FieldElement::zero(),
+            FieldElement::zero(),
+            FieldElement::zero(),
+            FieldElement::zero(),
+        );
 
         b = self.Y - self.X;
         c = other.Y - other.X;
@@ -132,7 +132,12 @@ impl ExtensiblePoint {
 
         let mut result = ExtensiblePoint::identity();
 
-        let (mut a, mut b, mut c, mut d) = (Fq::zero(), Fq::zero(), Fq::zero(), Fq::zero());
+        let (mut a, mut b, mut c, mut d) = (
+            FieldElement::zero(),
+            FieldElement::zero(),
+            FieldElement::zero(),
+            FieldElement::zero(),
+        );
 
         b = self.Y - self.X;
         d = other.Y - other.X;
@@ -158,9 +163,9 @@ impl ExtensiblePoint {
     }
 
     pub fn add_affine_niels(&self, other: AffineNielsPoint) -> ExtensiblePoint {
-        let mut a = Fq::zero();
-        let mut b = Fq::zero();
-        let mut c = Fq::zero();
+        let mut a = FieldElement::zero();
+        let mut b = FieldElement::zero();
+        let mut c = FieldElement::zero();
 
         let mut X = self.X;
         let mut Y = self.Y;
