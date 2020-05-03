@@ -5,17 +5,14 @@ use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTi
 /// q = 2^448 - 2^224 -1
 ///
 /// Fq is represented using radix 2^28 as 16 u32s. We therefore represent
-/// a field element `x` as x_0 * 2^{28 * 0} + x_1 * 2^{28 * 1} + .... + x_15 * 2^{28 * 15}
-///
-/// XXX: Compute the wiggle room
+/// a field element `x` as x_0 + x_1 * 2^{28 * 1} + .... + x_15 * 2^{28 * 15}
+
 #[derive(Copy, Clone, Debug)]
 pub struct Fq(pub(crate) [u32; 16]);
 
-impl From<u32> for Fq {
-    fn from(a: u32) -> Fq {
-        Fq([a, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    }
-}
+////
+/// Trait Implementations
+///
 
 impl Index<usize> for Fq {
     type Output = u32;
@@ -23,6 +20,7 @@ impl Index<usize> for Fq {
         &self.0[a]
     }
 }
+
 impl IndexMut<usize> for Fq {
     fn index_mut(&mut self, a: usize) -> &mut Self::Output {
         &mut self.0[a]
@@ -51,9 +49,9 @@ impl Add<Fq> for Fq {
 }
 impl Sub<Fq> for Fq {
     type Output = Fq;
-    fn sub(self, rhs: Fq) -> Self::Output {
+    fn sub(mut self, rhs: Fq) -> Self::Output {
+        self = Fq::bias(&self, 2);
         let mut inter_res = self.sub_no_reduce(&rhs);
-        inter_res.bias(2);
         inter_res.weak_reduce();
         inter_res
     }
@@ -129,8 +127,6 @@ impl ConditionallySelectable for Fq {
 
 impl ConstantTimeEq for Fq {
     fn ct_eq(&self, other: &Self) -> Choice {
-        // XXX: I think we need to reduce before comparing
-
         let mut difference = *self - *other;
         difference.strong_reduce();
 
@@ -160,7 +156,6 @@ impl PartialEq for Fq {
         self.ct_eq(&other).into()
     }
 }
-//XXX: Maybe compiler can infer this from derive(Eq)?
 impl Eq for Fq {}
 
 impl Default for Fq {
@@ -168,20 +163,97 @@ impl Default for Fq {
         Fq::zero()
     }
 }
+
+///
+/// Constants
+///
+
 impl Fq {
     pub const fn zero() -> Fq {
         Fq([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     }
-    pub(crate) fn is_zero(&self) -> Choice {
+    pub const fn one() -> Fq {
+        Fq([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    }
+    pub fn minus_one() -> Fq {
+        Fq([
+            268435454, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
+            268435454, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
+        ])
+    }
+}
+
+///
+/// Checks
+///
+impl Fq {
+    pub fn is_zero(&self) -> Choice {
         self.ct_eq(&Fq::zero())
     }
-    // XXX: optimise
-    pub(crate) fn low_bit(&self) -> u32 {
-        let mut clone = self.clone();
-        clone.strong_reduce();
-        0u32.wrapping_sub(clone[0] & 1)
+    pub fn is_negative(&self) -> Choice {
+        let bytes = self.to_bytes();
+        (bytes[0] & 1).into()
+    }
+}
+
+///
+/// Serialisation
+///
+impl Fq {
+    /// Helper function for internally constructing a field element
+    pub(crate) const fn from_raw_slice(slice: [u32; 16]) -> Fq {
+        Fq(slice)
     }
 
+    /// This does not check if the encoding is canonical (ie if the input is reduced)
+    /// We parse in chunks of 56 bytes, the first 28 bytes will contain the i'th limb
+    /// and the second 28 bytes will contain the (2i+1)'th limb
+    pub(crate) fn from_bytes(bytes: &[u8; 56]) -> Fq {
+        let load7 = |input: &[u8]| -> u64 {
+            (input[0] as u64)
+                | ((input[1] as u64) << 8)
+                | ((input[2] as u64) << 16)
+                | ((input[3] as u64) << 24)
+                | ((input[4] as u64) << 32)
+                | ((input[5] as u64) << 40)
+                | ((input[6] as u64) << 48)
+        };
+
+        const MASK: u32 = (1 << 28) - 1;
+        let mut res = Fq::zero();
+        for i in 0..8 {
+            // Load i'th 56 bytes
+            let out = load7(&bytes[i * 7..]);
+            // Process two 28-bit limbs
+            res[2 * i] = (out as u32) & MASK;
+            res[2 * i + 1] = (out >> 28) as u32;
+        }
+
+        res
+    }
+
+    // We encode the Field element by storing each consecutive into a u64
+    pub(crate) fn to_bytes(&self) -> [u8; 56] {
+        // Reduce element to a canonical representation.
+        let mut limbs = self.clone();
+        limbs.strong_reduce();
+
+        let mut res = [0u8; 56];
+
+        for i in 0..8 {
+            let mut l = (limbs[2 * i] as u64) + ((limbs[2 * i + 1] as u64) << 28);
+
+            for j in 0..7 {
+                res[7 * i + j] = l as u8;
+                l >>= 8;
+            }
+        }
+        res
+    }
+}
+
+impl Fq {
+    /// Inverts a field element
     pub(crate) fn invert(&self) -> Fq {
         let mut t1 = self.square();
         let (mut t2, _) = t1.inverse_square_root();
@@ -189,19 +261,27 @@ impl Fq {
         t2 = t1 * self;
         t2
     }
+    /// Sqaures a field element
     pub(crate) fn square(&self) -> Fq {
         karatsuba::square(self)
     }
-    // Squares self n times
+    /// Squares a field element  `n` times
     fn square_n(&self, mut n: u32) -> Fq {
         let mut result = self.square();
+
+        // Decrease value by 1 since we just did a squaring
         n = n - 1;
+
         for _ in 0..n {
             result = result.square();
         }
 
         result
     }
+
+    /// Computes the inverse square root of a field element
+    /// Returns the result and a boolean to indicate whether self
+    /// was a Quadratic residue
     pub(crate) fn inverse_square_root(&self) -> (Fq, bool) {
         let (mut l0, mut l1, mut l2) = (Fq::zero(), Fq::zero(), Fq::zero());
 
@@ -236,29 +316,20 @@ impl Fq {
         (l1, is_residue)
     }
 
-    // sqrt(u/v) = u * invsqrt(u/v)
-    // XXX: Probably a better way to do this?
+    /// Computes the square root ratio of two elements
     pub(crate) fn sqrt_ratio(u: &Fq, v: &Fq) -> (Fq, bool) {
         let x = *u * v;
-
         let (inv_sqrt_x, is_res) = x.inverse_square_root();
         (inv_sqrt_x * u, is_res)
     }
 
-    pub fn is_negative(&self) -> Choice {
-        let bytes = self.to_bytes();
-        (bytes[0] & 1).into()
-    }
-
-    pub(crate) const fn one() -> Fq {
-        Fq([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    }
-
+    /// Negates a field element
     pub(crate) fn negate(&self) -> Fq {
         Fq::zero() - *self
     }
+
     /// Bias adds 'b' multiples of `p` to self
-    pub(crate) fn bias(&mut self, b: u32) {
+    pub(crate) fn bias(a: &Fq, b: u32) -> Fq {
         const MASK: u32 = (1 << 28) - 1;
 
         let co1 = b * MASK;
@@ -267,25 +338,24 @@ impl Fq {
         let lo = [co1; 4];
         let hi = [co2, co1, co1, co1];
 
-        self[0] = self[0].wrapping_add(lo[0]);
-        self[1] = self[1].wrapping_add(lo[1]);
-        self[2] = self[2].wrapping_add(lo[2]);
-        self[3] = self[3].wrapping_add(lo[3]);
-
-        self[4] = self[4].wrapping_add(lo[0]);
-        self[5] = self[5].wrapping_add(lo[1]);
-        self[6] = self[6].wrapping_add(lo[2]);
-        self[7] = self[7].wrapping_add(lo[3]);
-
-        self[8] = self[8].wrapping_add(hi[0]);
-        self[9] = self[9].wrapping_add(hi[1]);
-        self[10] = self[10].wrapping_add(hi[2]);
-        self[11] = self[11].wrapping_add(hi[3]);
-
-        self[12] = self[12].wrapping_add(lo[0]);
-        self[13] = self[13].wrapping_add(lo[1]);
-        self[14] = self[14].wrapping_add(lo[2]);
-        self[15] = self[15].wrapping_add(lo[3]);
+        Fq([
+            a[0].wrapping_add(lo[0]),
+            a[1].wrapping_add(lo[1]),
+            a[2].wrapping_add(lo[2]),
+            a[3].wrapping_add(lo[3]),
+            a[4].wrapping_add(lo[0]),
+            a[5].wrapping_add(lo[1]),
+            a[6].wrapping_add(lo[2]),
+            a[7].wrapping_add(lo[3]),
+            a[8].wrapping_add(hi[0]),
+            a[9].wrapping_add(hi[1]),
+            a[10].wrapping_add(hi[2]),
+            a[11].wrapping_add(hi[3]),
+            a[12].wrapping_add(lo[0]),
+            a[13].wrapping_add(lo[1]),
+            a[14].wrapping_add(lo[2]),
+            a[15].wrapping_add(lo[3]),
+        ])
     }
 
     pub(crate) fn weak_reduce(&mut self) {
@@ -313,10 +383,13 @@ impl Fq {
         self[0] = (self[0] & MASK) + limb16_mod;
     }
 
+    /// Reduces the field element to a canonical representation
+    /// This is used when checking equality between two field elements and
+    /// when encoding a field element
     pub(crate) fn strong_reduce(&mut self) {
         const MASK: u32 = (1 << 28) - 1;
 
-        // After weak reducing, we know can make the guarantee that
+        // After weak reducing, we can make the guarantee that
         // 0 < self < 2p
         self.weak_reduce();
 
@@ -383,20 +456,20 @@ impl Fq {
         self[15] = (scarry as u32) & MASK;
         scarry >>= 28;
 
-        // There are two cases to consider; either the value was >= p or it was <less than> p
+        // There are two cases to consider; either the value was >= p or it was <less than p
         // Case 1:
-        // If the value was more than p, then we will not have a borrow bit, when we subtracted the modulus
-        // In this case, scarry = 0
+        // If the value was more than p, then the final borrow will be zero. This is scarry.
         // Case 2:
-        // The other case, is that our value was less than p.
-        // We will therefore have a borrow bit of - 1 signifying that our total is negative.
+        // If the  value was less than p, the final borrow will be -1.
 
-        // if borrow is not -1 or 0, then we have a problem
+        // The only two possibilities for the borrow bit is -1 or 0.
         assert!(scarry == 0 || scarry + 1 == 0);
 
         let scarry_mask = (scarry as u32) & MASK;
         let mut carry = 0u64;
         let m = scarry_mask as u64;
+
+        // Carry propagation
 
         carry += add_carry(self[0], m);
         self[0] = (carry as u32) & MASK;
@@ -454,226 +527,89 @@ impl Fq {
         assert!((carry as i64) + (scarry as i64) == 0);
     }
 
-    // Adds the two field elements together
-    // Result is not reduced
+    /// Adds two field elements together
+    /// Result is not reduced
     pub(crate) fn add_no_reduce(&self, rhs: &Fq) -> Fq {
-        let mut result = Fq::zero();
-
-        result[0] = self[0] + rhs[0];
-        result[1] = self[1] + rhs[1];
-        result[2] = self[2] + rhs[2];
-        result[3] = self[3] + rhs[3];
-        result[4] = self[4] + rhs[4];
-        result[5] = self[5] + rhs[5];
-        result[6] = self[6] + rhs[6];
-        result[7] = self[7] + rhs[7];
-        result[8] = self[8] + rhs[8];
-        result[9] = self[9] + rhs[9];
-        result[10] = self[10] + rhs[10];
-        result[11] = self[11] + rhs[11];
-        result[12] = self[12] + rhs[12];
-        result[13] = self[13] + rhs[13];
-        result[14] = self[14] + rhs[14];
-        result[15] = self[15] + rhs[15];
-
-        result
+        Fq([
+            self[0] + rhs[0],
+            self[1] + rhs[1],
+            self[2] + rhs[2],
+            self[3] + rhs[3],
+            self[4] + rhs[4],
+            self[5] + rhs[5],
+            self[6] + rhs[6],
+            self[7] + rhs[7],
+            self[8] + rhs[8],
+            self[9] + rhs[9],
+            self[10] + rhs[10],
+            self[11] + rhs[11],
+            self[12] + rhs[12],
+            self[13] + rhs[13],
+            self[14] + rhs[14],
+            self[15] + rhs[15],
+        ])
     }
-    // Subtracts the two field elements from each other
-    // Result is not reduced
+
+    /// Subtracts the two field elements from each other
+    /// Result is not reduced
     pub(crate) fn sub_no_reduce(&self, rhs: &Fq) -> Fq {
-        let mut result = Fq::zero();
-        result[0] = self[0].wrapping_sub(rhs[0]);
-        result[1] = self[1].wrapping_sub(rhs[1]);
-        result[2] = self[2].wrapping_sub(rhs[2]);
-        result[3] = self[3].wrapping_sub(rhs[3]);
-        result[4] = self[4].wrapping_sub(rhs[4]);
-        result[5] = self[5].wrapping_sub(rhs[5]);
-        result[6] = self[6].wrapping_sub(rhs[6]);
-        result[7] = self[7].wrapping_sub(rhs[7]);
-        result[8] = self[8].wrapping_sub(rhs[8]);
-        result[9] = self[9].wrapping_sub(rhs[9]);
-        result[10] = self[10].wrapping_sub(rhs[10]);
-        result[11] = self[11].wrapping_sub(rhs[11]);
-        result[12] = self[12].wrapping_sub(rhs[12]);
-        result[13] = self[13].wrapping_sub(rhs[13]);
-        result[14] = self[14].wrapping_sub(rhs[14]);
-        result[15] = self[15].wrapping_sub(rhs[15]);
-        result
-    }
-
-    pub(crate) fn mul_double_limb(x: &Fq, w: u64) -> Fq {
-        let radix = 28;
-        let radix_mask = 0xfffffff as u64;
-        let mut result = Fq::zero();
-        let whi = (w >> radix) as u32;
-        let wlo = (w & (radix_mask)) as u32;
-        let mut accum0: u64;
-        let mut accum8: u64;
-
-        accum0 = (wlo as u64) * (x[0] as u64);
-        accum8 = (wlo as u64) * (x[8] as u64);
-        accum0 += (whi as u64) * (x[15] as u64);
-        accum8 += (whi as u64) * ((x[15] + x[7]) as u64);
-        result[0] = (accum0 & radix_mask) as u32;
-        accum0 >>= radix;
-        result[8] = (accum8 & (radix_mask)) as u32;
-        accum8 >>= radix;
-        // 1
-        accum0 += (wlo as u64) * (x[1] as u64);
-        accum8 += (wlo as u64) * (x[9] as u64);
-        accum0 += (whi as u64) * (x[0] as u64);
-        accum8 += (whi as u64) * (x[8] as u64);
-        result[1] = (accum0 & (radix_mask)) as u32;
-        accum0 >>= radix;
-        result[9] = (accum8 & (radix_mask)) as u32;
-        accum8 >>= radix;
-        // 2
-        accum0 += (wlo as u64) * (x[2] as u64);
-        accum8 += (wlo as u64) * (x[10] as u64);
-        accum0 += (whi as u64) * (x[1] as u64);
-        accum8 += (whi as u64) * (x[9] as u64);
-        result[2] = (accum0 & (radix_mask)) as u32;
-        accum0 >>= radix;
-        result[10] = (accum8 & (radix_mask)) as u32;
-        accum8 >>= radix;
-        // 3
-        accum0 += (wlo as u64) * (x[3] as u64);
-        accum8 += (wlo as u64) * (x[11] as u64);
-        accum0 += (whi as u64) * (x[2] as u64);
-        accum8 += (whi as u64) * (x[10] as u64);
-        result[3] = (accum0 & (radix_mask)) as u32;
-        accum0 >>= radix;
-        result[11] = (accum8 & (radix_mask)) as u32;
-        accum8 >>= radix;
-        // 4
-        accum0 += (wlo as u64) * (x[4] as u64);
-        accum8 += (wlo as u64) * (x[12] as u64);
-        accum0 += (whi as u64) * (x[3] as u64);
-        accum8 += (whi as u64) * (x[11] as u64);
-        result[4] = (accum0 & (radix_mask)) as u32;
-        accum0 >>= radix;
-        result[12] = (accum8 & (radix_mask)) as u32;
-        accum8 >>= radix;
-        // 5
-        accum0 += (wlo as u64) * (x[5] as u64);
-        accum8 += (wlo as u64) * (x[13] as u64);
-        accum0 += (whi as u64) * (x[4] as u64);
-        accum8 += (whi as u64) * (x[12] as u64);
-        result[5] = (accum0 & (radix_mask)) as u32;
-        accum0 >>= radix;
-        result[13] = (accum8 & (radix_mask)) as u32;
-        accum8 >>= radix;
-        // 6
-        accum0 += (wlo as u64) * (x[6] as u64);
-        accum8 += (wlo as u64) * (x[14] as u64);
-        accum0 += (whi as u64) * (x[5] as u64);
-        accum8 += (whi as u64) * (x[13] as u64);
-        result[6] = (accum0 & (radix_mask)) as u32;
-        accum0 >>= radix;
-        result[14] = (accum8 & (radix_mask)) as u32;
-        accum8 >>= radix;
-        // 7
-        accum0 += (wlo as u64) * (x[7] as u64);
-        accum8 += (wlo as u64) * (x[15] as u64);
-        accum0 += (whi as u64) * (x[6] as u64);
-        accum8 += (whi as u64) * (x[14] as u64);
-        result[7] = (accum0 & (radix_mask)) as u32;
-        accum0 >>= radix;
-        result[15] = (accum8 & (radix_mask)) as u32;
-        accum8 >>= radix;
-
-        // finish
-        accum0 += accum8 + (result[8] as u64);
-        result[8] = (accum0 & (radix_mask)) as u32;
-        result[9] += (accum0 >> radix) as u32;
-
-        accum8 += result[0] as u64;
-        result[0] = (accum8 & (radix_mask)) as u32;
-        result[1] += (accum8 >> radix) as u32;
-        result
-    }
-
-    // Currently this does not check if the encoding is canonical (ie if the Field number is reduced)
-    // We will parse in chunks of 56 bytes
-    // The first 28 bytes will contain the i'th limb
-    // The second 28 bytes will contain the (2i+1)'th limb
-    pub(crate) fn from_bytes(bytes: &[u8; 56]) -> Fq {
-        let load7 = |input: &[u8]| -> u64 {
-            (input[0] as u64)
-                | ((input[1] as u64) << 8)
-                | ((input[2] as u64) << 16)
-                | ((input[3] as u64) << 24)
-                | ((input[4] as u64) << 32)
-                | ((input[5] as u64) << 40)
-                | ((input[6] as u64) << 48)
-        };
-
-        const MASK: u32 = (1 << 28) - 1;
-        let mut res = Fq::zero();
-        for i in 0..8 {
-            // Load i'th 56 bytes
-            let out = load7(&bytes[i * 7..]);
-            // Process two 28-bit limbs
-            res[2 * i] = (out as u32) & MASK;
-            res[2 * i + 1] = (out >> 28) as u32;
-        }
-
-        res
-    }
-
-    // We encode the Field element by storing each consecutive into a u64
-    pub(crate) fn to_bytes(&self) -> [u8; 56] {
-        // First we reduce the element so that to_bytes always produces a canonical encoding
-        let mut limbs = self.clone();
-        limbs.strong_reduce();
-
-        let mut res = [0u8; 56];
-
-        for i in 0..8 {
-            let mut l = (limbs[2 * i] as u64) + ((limbs[2 * i + 1] as u64) << 28);
-
-            for j in 0..7 {
-                res[7 * i + j] = l as u8;
-                l >>= 8;
-            }
-        }
-        res
+        Fq([
+            self[0].wrapping_sub(rhs[0]),
+            self[1].wrapping_sub(rhs[1]),
+            self[2].wrapping_sub(rhs[2]),
+            self[3].wrapping_sub(rhs[3]),
+            self[4].wrapping_sub(rhs[4]),
+            self[5].wrapping_sub(rhs[5]),
+            self[6].wrapping_sub(rhs[6]),
+            self[7].wrapping_sub(rhs[7]),
+            self[8].wrapping_sub(rhs[8]),
+            self[9].wrapping_sub(rhs[9]),
+            self[10].wrapping_sub(rhs[10]),
+            self[11].wrapping_sub(rhs[11]),
+            self[12].wrapping_sub(rhs[12]),
+            self[13].wrapping_sub(rhs[13]),
+            self[14].wrapping_sub(rhs[14]),
+            self[15].wrapping_sub(rhs[15]),
+        ])
     }
 }
 
+pub(crate) fn from_u32(a: u32) -> Fq {
+    Fq([a, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+}
 #[cfg(test)]
 mod test {
     use super::*;
     #[test]
     fn test_add() {
-        let a = Fq::from(8);
+        let a = from_u32(8);
         let b = a + a;
-        let c = Fq::from(16);
+        let c = from_u32(16);
         assert!(b == c);
     }
     #[test]
     fn test_bias() {
-        let mut a = Fq::from(5);
-        a.bias(2);
-        let b = Fq::from(5);
+        let mut a = from_u32(5);
+        a = Fq::bias(&a, 2);
+        let b = from_u32(5);
         assert!(a == b);
     }
 
     #[test]
     #[should_panic]
     fn test_bias_more_than_headroom() {
-        let mut a = Fq::from(5);
-        a.bias(17);
+        let mut a = from_u32(5);
+        a = Fq::bias(&a, 17);
     }
 
     #[test]
     fn test_equals() {
-        let a = Fq::from(10);
-        let b = Fq::from(20);
+        let a = from_u32(10);
+        let b = from_u32(20);
         assert!(a != b);
 
-        let c = Fq::from(99);
-        let d = Fq::from(98);
+        let c = from_u32(99);
+        let d = from_u32(95);
 
         let ab = a * b;
         let ba = b * a;
@@ -684,8 +620,8 @@ mod test {
 
     #[test]
     fn test_sub() {
-        let x = Fq::from(255);
-        let y = Fq::from(255);
+        let x = from_u32(255);
+        let y = from_u32(255);
         let MODULUS = Fq([
             0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff,
             0xffffffe, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff, 0xfffffff,
@@ -693,7 +629,7 @@ mod test {
         // First subtract without reducing
         let mut z = x.sub_no_reduce(&y);
         // Then bias z by 2
-        z.bias(2);
+        z = Fq::bias(&z, 2);
         // Then clear high bits
         z.weak_reduce();
 
@@ -754,30 +690,23 @@ mod test {
     }
 
     #[test]
-    fn test_basic_mul_double_limb() {
-        let c = Fq::mul_double_limb(&Fq::from(9), 100);
-
-        assert_eq!(c, Fq::from(900));
-    }
-
-    #[test]
     fn test_d_min_one() {
         let d = Fq([
             268396374, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
             268435454, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
         ]);
 
-        let mut d_min_one = Fq::from(2) * (d - Fq::one());
+        let mut d_min_one = (Fq::one() + Fq::one()) * (d - Fq::one());
         d_min_one.strong_reduce();
         dbg!(d_min_one);
     }
 
     #[test]
     fn test_is_zero() {
-        let a = Fq::from(0);
-        let b = Fq::from(0);
-        let c = Fq::from(0);
-        let d = Fq::from(1);
+        let a = from_u32(0);
+        let b = from_u32(0);
+        let c = from_u32(0);
+        let d = from_u32(1);
         let e = Fq([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 268435455]);
 
         assert_eq!(a.is_zero().unwrap_u8(), 1u8);
@@ -788,10 +717,10 @@ mod test {
     }
     #[test]
     fn test_conditional_swap() {
-        let mut x = Fq::from(1908);
-        let x_old = Fq::from(1908);
-        let mut y = Fq::from(200);
-        let y_old = Fq::from(200);
+        let mut x = from_u32(1908);
+        let x_old = from_u32(1908);
+        let mut y = from_u32(200);
+        let y_old = from_u32(200);
 
         // x and y should swap value
         Fq::conditional_swap(&mut x, &mut y, Choice::from(1));
@@ -806,20 +735,20 @@ mod test {
 
     #[test]
     fn test_conditional_negate() {
-        let mut a = Fq::from(100);
+        let mut a = from_u32(100);
         let a_neg = a.negate();
         a.conditional_negate(Choice::from(1));
         assert!(a == a_neg);
         //
-        let mut b = Fq::from(200);
+        let mut b = from_u32(200);
         b.conditional_negate(Choice::from(0));
-        assert!(b == Fq::from(200));
+        assert!(b == from_u32(200));
     }
 
     #[test]
     fn test_sqrt_ratio() {
-        let ten = Fq::from(10);
-        let twenty = Fq::from(20);
+        let ten = from_u32(10);
+        let twenty = from_u32(20);
         let (a, is_res) = Fq::sqrt_ratio(&ten, &twenty);
         assert!(is_res);
 

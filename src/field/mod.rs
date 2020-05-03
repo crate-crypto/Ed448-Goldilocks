@@ -1,7 +1,6 @@
-pub(crate) mod base;
-pub(crate) mod scalar;
+// radix 28
+pub mod u32;
+pub use crate::field::u32::Scalar;
 
-// Components not in the field module, can only access the two defined Field structs
-// They should not have access to the Limbs etc and the internal structure
-pub use base::Fq;
-pub use scalar::Scalar;
+// Following Dalek, this should be behind a feature gate and would be the default radix
+pub type FieldElement = crate::field::u32::Fq;
