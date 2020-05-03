@@ -9,3 +9,9 @@ edition = "2018"
 [dependencies]
 subtle = "2.2.2"
 hex = "0.4"
+
+
+[features]
+default = ["u32_backend"]
+
+u32_backend = []

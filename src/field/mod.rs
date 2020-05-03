@@ -1,6 +1,8 @@
 // radix 28
+#[cfg(feature = "u32_backend")]
 pub mod u32;
+
 pub use crate::field::u32::Scalar;
 
-// Following Dalek, this should be behind a feature gate and would be the default radix
+#[cfg(feature = "u32_backend")]
 pub type FieldElement = crate::field::u32::Fq;
