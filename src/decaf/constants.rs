@@ -1,25 +1,28 @@
 use crate::curve::twedwards::extended::ExtendedPoint;
 use crate::decaf::DecafPoint;
-use crate::field::Fq;
+use crate::field::FieldElement;
 
 /// INVSQRT(a*d-1)
-pub const DECAF_FACTOR: Fq = Fq([
+pub const DECAF_FACTOR: FieldElement = FieldElement::from_raw_slice([
     0x05572736, 0x042ef0f4, 0x00ce5296, 0x07bf6aa2, 0x0ed26033, 0x0f4fd6ed, 0x0a839a66, 0x0968c14b,
     0x04a2d780, 0x0b8d54b6, 0x01a7b8a5, 0x06aa0a1f, 0x0d722fa2, 0x0683bf68, 0x0beb24f7, 0x022d962f,
 ]);
 
+pub const FOUR: FieldElement =
+    FieldElement::from_raw_slice([4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
 // Refactor this to use the Edwards basepoint internally
 pub const DECAF_BASEPOINT: DecafPoint = DecafPoint(ExtendedPoint {
-    X: Fq([
+    X: FieldElement::from_raw_slice([
         268435456, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 134217727,
         268435454, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 134217727,
     ]),
-    Y: Fq([
+    Y: FieldElement::from_raw_slice([
         266160740, 101161805, 74490312, 12706731, 149232027, 72184820, 68425752, 84169329,
         64300076, 80170041, 105082960, 37781586, 19953866, 222875756, 82854534, 139496929,
     ]),
-    Z: Fq([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-    T: Fq([
+    Z: FieldElement::from_raw_slice([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    T: FieldElement::from_raw_slice([
         202998021, 238846317, 66379923, 102789507, 54662147, 81652110, 85576069, 171023191,
         104342404, 127188629, 141403663, 236837931, 109226495, 84812757, 24364708, 114517662,
     ]),

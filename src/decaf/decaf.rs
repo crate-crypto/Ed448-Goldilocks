@@ -1,7 +1,7 @@
 use crate::curve::constants::{D_MINUS_ONE as TWISTED_D, NEG_EDWARDS_D};
 use crate::curve::twedwards::extended::ExtendedPoint;
-use crate::decaf::constants::{DECAF_BASEPOINT, DECAF_FACTOR};
-use crate::field::Fq;
+use crate::decaf::constants::{DECAF_BASEPOINT, DECAF_FACTOR, FOUR};
+use crate::field::FieldElement;
 use std::fmt;
 use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
 
@@ -86,7 +86,7 @@ impl CompressedDecaf {
     // XXX: We allow the identity point
     /// XXX: Clean this up to be more descriptive of what is happening
     pub fn decode(&self) -> Option<DecafPoint> {
-        let s = Fq::from_bytes(&self.0);
+        let s = FieldElement::from_bytes(&self.0);
         //XX: Check for canonical encoding and sign,
         // Copied this check from Dalek: The From_bytes function does not throw an error, if the bytes exceed the prime.
         // However, to_bytes reduces the Field element before serialising
@@ -99,11 +99,11 @@ impl CompressedDecaf {
         }
 
         let ss = s.square();
-        let u1 = Fq::one() - ss;
-        let u2 = Fq::one() + ss;
+        let u1 = FieldElement::one() - ss;
+        let u2 = FieldElement::one() + ss;
         let u1_sqr = u1.square();
 
-        let v = ss * (Fq::from(4).negate() * TWISTED_D) + u1_sqr; // XXX: constantify please
+        let v = ss * (FOUR.negate() * TWISTED_D) + u1_sqr; // XXX: constantify please
 
         let (I, ok) = (v * u1_sqr).inverse_square_root();
         if !ok {
@@ -118,7 +118,7 @@ impl CompressedDecaf {
         X.conditional_negate(k.is_negative());
 
         let Y = Dx * u2;
-        let Z = Fq::one();
+        let Z = FieldElement::one();
         let T = X * Y;
 
         Some(DecafPoint(ExtendedPoint { X: X, Y, Z, T }))
@@ -131,22 +131,22 @@ mod test {
     fn test_edwards_ristretto_operations() {
         // Basic test that if P1 + P2 = P3
         // Then Decaf(P1) + Decaf(P2) = Decaf(P3)
-        let X = Fq([
+        let X = FieldElement::from_raw_slice([
             0x0a7f964a, 0x0db033f8, 0x062b9f0b, 0x07bff7d6, 0x05e755a2, 0x013b6f8b, 0x0f080bdc,
             0x0a112ac0, 0x0416988a, 0x03404b2f, 0x00561ea3, 0x01df752c, 0x070e0b1c, 0x0e73a0c4,
             0x078245d5, 0x09a42df0,
         ]);
-        let Y = Fq([
+        let Y = FieldElement::from_raw_slice([
             0x0c2e6c3d, 0x0a03c3f2, 0x0fd16e97, 0x0bab4ec6, 0x08ddba78, 0x091638ef, 0x0b0add85,
             0x070c212d, 0x04bcd337, 0x0c828579, 0x0712cfff, 0x09c1534a, 0x0119cafe, 0x08e72ee0,
             0x0f14ff19, 0x0d0c7e25,
         ]);
-        let Z = Fq([
+        let Z = FieldElement::from_raw_slice([
             0x0a0d6be1, 0x0bcd9788, 0x00f9ca8a, 0x038cf839, 0x00912da2, 0x0a3c503a, 0x056fe7e0,
             0x03db9a49, 0x0f19d062, 0x052ac631, 0x01cbda35, 0x02967214, 0x0eed2db2, 0x0a948ce0,
             0x05f7a3a7, 0x0fa35bc2,
         ]);
-        let T = Fq([
+        let T = FieldElement::from_raw_slice([
             0x0fc9f32d, 0x0e442931, 0x065e50ff, 0x04be230d, 0x0dc923c2, 0x0000467c, 0x08fc8902,
             0x0e034cfb, 0x0126370c, 0x06ec706d, 0x06ff07ad, 0x0a27cd65, 0x060f214f, 0x0eb7756d,
             0x0b694dc7, 0x015705ad,
