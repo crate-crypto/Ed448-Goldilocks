@@ -8,8 +8,11 @@ pub const DECAF_FACTOR: FieldElement = FieldElement::from_raw_slice([
     0x04a2d780, 0x0b8d54b6, 0x01a7b8a5, 0x06aa0a1f, 0x0d722fa2, 0x0683bf68, 0x0beb24f7, 0x022d962f,
 ]);
 
-pub const FOUR: FieldElement =
-    FieldElement::from_raw_slice([4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+// -4 * Twised_D = -4 * (EDWARDS_D-1)
+pub const NEG_FOUR_TIMES_TWISTED_D: FieldElement = FieldElement::from_raw_slice([
+    156327, 268435456, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435454,
+    268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
+]);
 
 // Refactor this to use the Edwards basepoint internally
 pub const DECAF_BASEPOINT: DecafPoint = DecafPoint(ExtendedPoint {

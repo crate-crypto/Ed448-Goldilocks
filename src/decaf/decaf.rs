@@ -1,6 +1,6 @@
-use crate::curve::constants::{D_MINUS_ONE as TWISTED_D, NEG_EDWARDS_D};
+use crate::curve::constants::NEG_EDWARDS_D;
 use crate::curve::twedwards::extended::ExtendedPoint;
-use crate::decaf::constants::{DECAF_BASEPOINT, DECAF_FACTOR, FOUR};
+use crate::decaf::constants::{DECAF_BASEPOINT, DECAF_FACTOR, NEG_FOUR_TIMES_TWISTED_D};
 use crate::field::FieldElement;
 use std::fmt;
 use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
@@ -103,7 +103,7 @@ impl CompressedDecaf {
         let u2 = FieldElement::one() + ss;
         let u1_sqr = u1.square();
 
-        let v = ss * (FOUR.negate() * TWISTED_D) + u1_sqr; // XXX: constantify please
+        let v = ss * (NEG_FOUR_TIMES_TWISTED_D) + u1_sqr; // XXX: constantify please
 
         let (I, ok) = (v * u1_sqr).inverse_square_root();
         if !ok {
