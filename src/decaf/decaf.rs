@@ -1,6 +1,6 @@
+use crate::constants::{DECAF_BASEPOINT, DECAF_FACTOR, NEG_FOUR_TIMES_TWISTED_D};
 use crate::curve::constants::NEG_EDWARDS_D;
 use crate::curve::twedwards::extended::ExtendedPoint;
-use crate::decaf::constants::{DECAF_BASEPOINT, DECAF_FACTOR, NEG_FOUR_TIMES_TWISTED_D};
 use crate::field::FieldElement;
 use std::fmt;
 use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
