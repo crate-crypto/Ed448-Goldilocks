@@ -1,10 +1,11 @@
 use crate::constants::EDWARDS_D;
 use crate::curve::edwards::affine::AffinePoint;
 use crate::curve::montgomery::montgomery::MontgomeryPoint; // XXX: need to fix this path
+use crate::curve::scalar_mul::signed_multi_comb;
 use crate::curve::twedwards::extended::ExtendedPoint as TwistedExtendedPoint;
-use crate::field::FieldElement;
-use crate::field::Scalar;
+use crate::field::{FieldElement, Scalar};
 use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
+
 /// Represent points on the (untwisted) edwards curve using Extended Homogenous Projective Co-ordinates
 /// (x, y) -> (X/Z, Y/Z, Z, T)
 /// a = 1, d = -39081
@@ -113,9 +114,7 @@ impl ExtendedPoint {
     pub fn scalar_mul(&self, scalar: &Scalar) -> ExtendedPoint {
         let adjusted_scalar = *scalar * Scalar::from(4).invert();
         let twisted_point = self.to_twisted();
-        use crate::curve::scalar_mul;
-        let partial_result =
-            scalar_mul::scalar_mul(&twisted_point, &adjusted_scalar).to_untwisted();
+        let partial_result = signed_multi_comb(&twisted_point, &adjusted_scalar).to_untwisted();
 
         // // Compute s mod 4
         // let s_mod_four = Scalar::from(scalar[0] & 3);

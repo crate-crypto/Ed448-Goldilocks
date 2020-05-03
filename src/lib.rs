@@ -7,7 +7,6 @@ mod curve;
 pub mod decaf;
 pub mod field;
 pub mod ristretto;
-pub(crate) mod window;
 #[cfg(test)]
 mod tests {
     #[test]
