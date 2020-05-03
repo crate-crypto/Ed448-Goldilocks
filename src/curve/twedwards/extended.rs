@@ -1,4 +1,4 @@
-use crate::curve::constants::D_MINUS_ONE;
+use crate::constants::D_MINUS_ONE;
 use crate::curve::edwards::ExtendedPoint as EdwardsExtendedPoint;
 use crate::curve::twedwards::affine::AffinePoint;
 use crate::curve::twedwards::extensible::ExtensiblePoint;

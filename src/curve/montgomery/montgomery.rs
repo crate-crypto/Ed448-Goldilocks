@@ -1,5 +1,5 @@
-use crate::curve::constants::ONE_MINUS_D;
-use crate::curve::edwards::extended::{CompressedEdwardsY, ExtendedPoint};
+use crate::constants::ONE_MINUS_D;
+use crate::curve::edwards::extended::ExtendedPoint;
 use crate::field::{FieldElement, Scalar};
 use std::fmt;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};

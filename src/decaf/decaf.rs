@@ -1,5 +1,4 @@
-use crate::constants::{DECAF_BASEPOINT, DECAF_FACTOR, NEG_FOUR_TIMES_TWISTED_D};
-use crate::curve::constants::NEG_EDWARDS_D;
+use crate::constants::{DECAF_BASEPOINT, DECAF_FACTOR, NEG_EDWARDS_D, NEG_FOUR_TIMES_TWISTED_D};
 use crate::curve::twedwards::extended::ExtendedPoint;
 use crate::field::FieldElement;
 use std::fmt;

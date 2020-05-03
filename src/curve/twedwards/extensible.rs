@@ -1,4 +1,4 @@
-use crate::curve::constants::{TWO_D_MINUS_ONE, TWO_ONE_MINUS_D};
+use crate::constants::{TWO_D_MINUS_ONE, TWO_ONE_MINUS_D};
 use crate::curve::twedwards::{
     affine::AffineNielsPoint, extended::ExtendedPoint, projective::ProjectiveNielsPoint,
 };

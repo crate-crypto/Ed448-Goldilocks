@@ -1,4 +1,4 @@
-use crate::curve::constants::EDWARDS_D;
+use crate::constants::EDWARDS_D;
 use crate::curve::twedwards::{extended::ExtendedPoint, extensible::ExtensiblePoint};
 use crate::field::FieldElement;
 use subtle::{Choice, ConditionallySelectable};
