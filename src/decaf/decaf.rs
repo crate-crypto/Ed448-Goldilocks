@@ -44,9 +44,7 @@ impl DecafPoint {
     }
 
     pub fn equals(&self, other: &DecafPoint) -> bool {
-        let XY = self.0.X * other.0.Y;
-        let YX = self.0.Y * other.0.X;
-        XY == YX
+        self.0.X * other.0.Y == self.0.Y * other.0.X
     }
 
     pub fn add(&self, other: &DecafPoint) -> DecafPoint {
