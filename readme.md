@@ -2,6 +2,7 @@
 
 VERY BIG WIP
 
+
 ## Field Choice
 
 -  The field size is a Solinas trinomial prime 2^448 - 2^224 -1. This prime is called the Goldilocks prime.
@@ -10,6 +11,9 @@ VERY BIG WIP
 ## Goldilocks Curve
 
 The goldilocks curve is an untwisted edwards curve. x^2 + y^2 = 1 -39081x^2y^2.
+
+N.B. The paper says "Ed448-Goldilocks" is the curve and Goldilocks is the prime subgroup, ie the group we get after applying the decaf strategy. This is different from the Goldilocks prime defined above 
+as that is the prime the curve is defined over. 
 
 ## Twisted Curve
 
