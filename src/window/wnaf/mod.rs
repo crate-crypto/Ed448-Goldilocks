@@ -9,7 +9,7 @@ pub(crate) const TABLE_SIZE: usize = 16;
 
 pub struct LookupTable([ProjectiveNielsPoint; TABLE_SIZE]);
 
-/// Adds a variable base lookup table
+/// Adds a variable base lookup table for a specific point
 impl From<&ExtendedPoint> for LookupTable {
     fn from(point: &ExtendedPoint) -> LookupTable {
         let P = point.to_extensible();
