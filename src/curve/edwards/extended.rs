@@ -10,9 +10,7 @@ use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
 /// (x, y) -> (X/Z, Y/Z, Z, T)
 /// a = 1, d = -39081
 /// XXX: Make this more descriptive
-/// XXX: WE could probably add the basic double and add methods here for untwisted points, and only use the isogeny when we need to do scalar mul, but we would then have two formulas for doubling etc
-/// XXX: THen again we will most likely need doubling to check the isogeny, so maybe add the double and add methods here because if we want to add a+b, then we dont want to force the isogeny which would cost more
-/// Should this be renamed to EdwardsPoint so that we are consistent with Dalek crypto?
+/// Should this be renamed to EdwardsPoint so that we are consistent with Dalek crypto? Necessary as ExtendedPoint is not regular lingo?
 #[derive(Copy, Clone, Debug)]
 pub struct ExtendedPoint {
     pub(crate) X: FieldElement,
@@ -25,38 +23,29 @@ pub struct CompressedEdwardsY(pub [u8; 57]);
 
 impl CompressedEdwardsY {
     pub fn decompress(&self) -> Option<ExtendedPoint> {
-        if let Some((sign, b)) = self.0.split_last() {
-            let sign = *sign >> 7;
+        // Safe to unwrap here as the underlying data structure is a slice
+        let (sign, b) = self.0.split_last().unwrap();
 
-            let mut y_bytes: [u8; 56] = [0; 56];
-            y_bytes.copy_from_slice(&b);
+        let mut y_bytes: [u8; 56] = [0; 56];
+        y_bytes.copy_from_slice(&b);
 
-            // Recover x
-            let y = FieldElement::from_bytes(&y_bytes);
-            let yy = y.square();
-            let dyy = EDWARDS_D * yy;
-            let numerator = FieldElement::one() - yy;
-            let denominator = FieldElement::one() - dyy;
+        // Recover x using y
+        let y = FieldElement::from_bytes(&y_bytes);
+        let yy = y.square();
+        let dyy = EDWARDS_D * yy;
+        let numerator = FieldElement::one() - yy;
+        let denominator = FieldElement::one() - dyy;
 
-            let (mut x, is_res) = FieldElement::sqrt_ratio(&numerator, &denominator);
-            if !is_res {
-                return None;
-            }
-            x.strong_reduce();
-
-            // Compute correct sign of x
-            let compressed_sign_bit = Choice::from(sign >> 7);
-            x.conditional_negate(compressed_sign_bit);
-
-            return Some(ExtendedPoint {
-                X: x,
-                Y: y,
-                Z: FieldElement::one(),
-                T: x * y,
-            });
-        } else {
+        let (mut x, is_res) = FieldElement::sqrt_ratio(&numerator, &denominator);
+        if !is_res {
             return None;
-        };
+        }
+
+        // Compute correct sign of x
+        let compressed_sign_bit = Choice::from(sign >> 7);
+        x.conditional_negate(compressed_sign_bit);
+
+        return Some(AffinePoint { x, y }.to_extended());
     }
 }
 
@@ -132,7 +121,7 @@ impl ExtendedPoint {
 
         let mut compressed_bytes = [0u8; 57];
 
-        let sign = affine_x.is_negative().unwrap_u8() << 7;
+        let sign = affine_x.is_negative().unwrap_u8();
 
         let y_bytes = affine_y.to_bytes();
         for i in 0..y_bytes.len() {
