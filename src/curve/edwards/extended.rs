@@ -84,6 +84,10 @@ impl ExtendedPoint {
             T: FieldElement::zero(),
         }
     }
+    /// Generator for the prime subgroup
+    pub const fn generator() -> ExtendedPoint {
+        crate::constants::GOLDILOCKS_BASE_POINT
+    }
 
     pub fn to_montgomery(&self) -> MontgomeryPoint {
         // u = Y^2 / X^2

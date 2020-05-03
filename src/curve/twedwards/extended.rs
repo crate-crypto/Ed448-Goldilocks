@@ -60,6 +60,11 @@ impl ExtendedPoint {
         }
     }
 
+    /// Generator for the prime subgroup
+    pub const fn generator() -> ExtendedPoint {
+        crate::constants::TWISTED_EDWARDS_BASE_POINT
+    }
+
     pub(crate) fn double(&self) -> ExtendedPoint {
         self.to_extensible().double().to_extended()
     }
