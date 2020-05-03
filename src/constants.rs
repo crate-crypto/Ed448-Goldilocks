@@ -65,3 +65,6 @@ pub const ONE_MINUS_D: FieldElement =
 /// Edwards `2(1-d)`, equals to 78164
 pub const TWO_ONE_MINUS_D: FieldElement =
     FieldElement::from_raw_slice([78164, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+/// 39082 used in the doubling procedure in montgomery ladder
+pub const A_PLUS_TWO_OVER_FOUR: FieldElement = ONE_MINUS_D;
