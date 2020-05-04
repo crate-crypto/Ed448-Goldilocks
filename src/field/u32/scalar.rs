@@ -101,7 +101,7 @@ impl Scalar {
 
         res
     }
-    pub(crate) fn to_bytes(&self) -> [u8; 56] {
+    pub fn to_bytes(&self) -> [u8; 56] {
         let mut res = [0u8; 56];
 
         for i in 0..14 {
