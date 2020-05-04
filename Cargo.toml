@@ -1,5 +1,5 @@
 [package]
-name = "curve448"
+name = "ed448"
 version = "0.1.0"
 authors = ["Kevaundray Wedderburn <kevtheappdev@gmail.com>"]
 edition = "2018"
