@@ -7,6 +7,9 @@ pub mod curve;
 pub mod decaf;
 mod field;
 pub mod ristretto;
+
+pub use field::Scalar;
+
 #[cfg(test)]
 mod tests {
     #[test]
