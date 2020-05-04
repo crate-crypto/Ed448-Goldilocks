@@ -13,6 +13,7 @@ keywords = ["cryptography", "crypto", "decaf", "ed448", "ed448-goldilocks","gold
 description = "A pure-Rust implementation of Ed448 and Curve448 and Decaf"
 exclude = [
     ".gitignore",
+    ".github/*"
 ]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
