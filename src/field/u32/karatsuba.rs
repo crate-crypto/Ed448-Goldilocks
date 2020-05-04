@@ -16,7 +16,6 @@ const MASK: u32 = (1 << 28) - 1;
 // XXX: This has been changed to use i128 to avoid using wrapping arithmetic; need to check bounds
 pub(crate) fn mul(a: &Fq, b: &Fq) -> Fq {
     const MASK: i128 = (1 << 28) - 1;
-
     let mut c = Fq::zero();
 
     let aa = [
