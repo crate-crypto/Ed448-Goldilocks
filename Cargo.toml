@@ -9,7 +9,7 @@ repository = "https://github.com/crate-crypto/Curve448"
 homepage = "https://github.com/crate-crypto/Curve448"
 documentation = "https://github.com/crate-crypto/Curve448"
 categories = ["cryptography"]
-keywords = ["cryptography", "crypto", "decaf", "ed448", "ed448-goldilocks","goldilocks", "curve448"]
+keywords = ["cryptography", "crypto", "decaf", "ed448", "ed448-goldilocks",]
 description = "A pure-Rust implementation of Ed448 and Curve448 and Decaf"
 exclude = [
     ".gitignore",
