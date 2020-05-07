@@ -1,7 +1,15 @@
-use crate::constants::EDWARDS_D;
+use crate::constants::TWISTED_D;
 use crate::curve::twedwards::{extended::ExtendedPoint, extensible::ExtensiblePoint};
 use crate::field::FieldElement;
 use subtle::{Choice, ConditionallySelectable};
+
+/// This point representation is not a part of the API.
+/// AffinePoint is mainly used as a convenience struct.
+/// XXX: Initially, I wanted to leave some of these in the library to help
+/// others learn. So if you are scrubbing the commit history. Hopefully they were helpful.
+
+/// Represents an AffinePoint on the Twisted Edwards Curve
+/// with Equation y^2 - x^2 = 1 - (TWISTED_D) * x^2 * y^2
 #[derive(PartialEq, Eq)]
 pub struct AffinePoint {
     pub(crate) x: FieldElement,
@@ -15,36 +23,41 @@ impl Default for AffinePoint {
 }
 
 impl AffinePoint {
+    /// Identity element
     pub(crate) fn identity() -> AffinePoint {
         AffinePoint {
             x: FieldElement::zero(),
             y: FieldElement::one(),
         }
     }
+    /// Checks if the AffinePoint is on the TwistedEdwards curve
     fn is_on_curve(&self) -> bool {
         let xx = self.x.square();
         let yy = self.y.square();
 
-        xx + yy == FieldElement::one() + (EDWARDS_D * xx * yy)
+        yy - xx == FieldElement::one() + (TWISTED_D * xx * yy)
     }
-    pub fn negate(&self) -> AffinePoint {
+    // Negates an AffinePoint
+    pub(crate) fn negate(&self) -> AffinePoint {
         AffinePoint {
             x: self.x.negate(),
             y: self.y,
         }
     }
-    fn add(&self, other: &AffinePoint) -> AffinePoint {
-        let y_numerator = self.y * other.y - self.x * other.x;
-        let y_denominator = FieldElement::one() - EDWARDS_D * self.x * other.x * self.y * other.y;
+    /// Adds an AffinePoint onto an AffinePoint
+    pub(crate) fn add(&self, other: &AffinePoint) -> AffinePoint {
+        let y_numerator = self.y * other.y + self.x * other.x;
+        let y_denominator = FieldElement::one() - TWISTED_D * self.x * other.x * self.y * other.y;
 
         let x_numerator = self.x * other.y + self.y * other.x;
-        let x_denominator = FieldElement::one() + EDWARDS_D * self.x * other.x * self.y * other.y;
+        let x_denominator = FieldElement::one() + TWISTED_D * self.x * other.x * self.y * other.y;
 
         let x = x_numerator * x_denominator.invert();
         let y = y_numerator * y_denominator.invert();
         AffinePoint { x, y }
     }
-    pub fn to_extensible(&self) -> ExtensiblePoint {
+    /// Converts an AffinePoint to an ExtensiblePoint
+    pub(crate) fn to_extensible(&self) -> ExtensiblePoint {
         ExtensiblePoint {
             X: self.x,
             Y: self.y,
@@ -53,24 +66,22 @@ impl AffinePoint {
             T2: self.y,
         }
     }
-    pub fn to_affine_niels(&self) -> AffineNielsPoint {
+    /// Converts an AffinePoint to an AffineNielsPoint
+    pub(crate) fn to_affine_niels(&self) -> AffineNielsPoint {
         AffineNielsPoint {
             y_plus_x: self.y + self.x,
             y_minus_x: self.y - self.x,
-            td: self.x * self.y * EDWARDS_D,
+            td: self.x * self.y * TWISTED_D,
         }
     }
-
-    pub fn to_extended(&self) -> ExtendedPoint {
-        ExtendedPoint {
-            X: self.x,
-            Y: self.y,
-            Z: FieldElement::one(),
-            T: self.x * self.y,
-        }
+    /// Converts an An AffinePoint to an ExtendedPoint
+    pub(crate) fn to_extended(&self) -> ExtendedPoint {
+        self.to_extensible().to_extended()
     }
 }
-// ((y+x)/2, (y-x)/2, dxy)
+
+/// Represents a PreComputed or Cached AffinePoint
+///  ((y+x)/2, (y-x)/2, dxy)
 #[derive(Copy, Clone)]
 pub struct AffineNielsPoint {
     pub(crate) y_plus_x: FieldElement,
@@ -89,21 +100,24 @@ impl ConditionallySelectable for AffineNielsPoint {
 }
 
 impl AffineNielsPoint {
-    pub fn equals(&self, other: &AffineNielsPoint) -> bool {
+    /// Checks if two AffineNielsPoints are equal
+    /// Returns true if they are
+    pub(crate) fn equals(&self, other: &AffineNielsPoint) -> bool {
         (self.y_minus_x == other.y_minus_x)
             && (self.y_plus_x == other.y_plus_x)
             && (self.td == other.td)
     }
 
-    pub fn identity() -> AffineNielsPoint {
+    /// Returns the identity element for an AffineNielsPoint
+    pub(crate) fn identity() -> AffineNielsPoint {
         AffineNielsPoint {
             y_plus_x: FieldElement::one(),
             y_minus_x: FieldElement::one(),
             td: FieldElement::zero(),
         }
     }
-
-    pub fn to_extended(&self) -> ExtendedPoint {
+    /// Converts an AffineNielsPoint to an ExtendedPoint
+    pub(crate) fn to_extended(&self) -> ExtendedPoint {
         ExtendedPoint {
             X: self.y_plus_x - self.y_minus_x,
             Y: self.y_minus_x + self.y_plus_x,
@@ -117,7 +131,6 @@ impl AffineNielsPoint {
 mod tests {
 
     use super::*;
-    use hex::decode as hex_decode;
 
     #[test]
     fn test_to_extensible() {
@@ -159,32 +172,17 @@ mod tests {
         };
 
         let b = a.to_extensible();
-        assert!(b.equals(&expected_b));
+        assert!(b == expected_b);
     }
 
-    fn slice_to_fixed_array(b: &[u8]) -> [u8; 56] {
-        let mut a: [u8; 56] = [0; 56];
-        a.copy_from_slice(&b);
-        a
-    }
-
-    fn hex_to_field(data: &str) -> FieldElement {
-        let mut bytes = hex_decode(data).unwrap();
-        bytes.reverse();
-        FieldElement::from_bytes(&slice_to_fixed_array(&bytes))
-    }
     #[test]
     fn test_negation() {
-        // Taken from paper
-        let x  = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
-        let y  = hex_to_field("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
-        let a = AffinePoint { x, y };
+        use crate::constants::TWISTED_EDWARDS_BASE_POINT;
+        let a = TWISTED_EDWARDS_BASE_POINT.to_affine();
         assert!(a.is_on_curve());
 
         let neg_a = a.negate();
-
         let got = neg_a.add(&a);
-
         assert!(got == AffinePoint::identity());
     }
 }
