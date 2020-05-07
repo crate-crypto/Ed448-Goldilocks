@@ -21,8 +21,8 @@ pub const EDWARDS_D: Fq = Fq([
 /// Neg_Edwards `-d`, equals to 39081
 pub const NEG_EDWARDS_D: Fq = Fq([39081, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
-/// Edwards `d-1`, equals to -39082
-pub const D_MINUS_ONE: Fq = Fq([
+/// Twisted Edwards D equals `d-1`, equals to -39082
+pub const TWISTED_D: Fq = Fq([
     268396373, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
     268435454, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
 ]);
