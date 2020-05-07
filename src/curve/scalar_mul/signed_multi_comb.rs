@@ -1,20 +1,24 @@
 use super::window::wnaf;
-use super::window::BASE_TABLE;
+use super::window::wnaf::LookupTable;
 use crate::curve::twedwards::extended::ExtendedPoint;
 use crate::curve::twedwards::extensible::ExtensiblePoint;
 use crate::field::Scalar;
 use subtle::Choice;
+
+const SCALAR_ADJUSTMENT_FACTOR: Scalar = Scalar([
+    0x4a7bb0cf, 0xc873d6d5, 0x23a70aad, 0xe933d8d7, 0x129c96fd, 0xbb124b65, 0x335dc163, 0x00000008,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+]);
 
 // XXX: This is _almost_ unreadable, we will slowly refactor for interoperability
 pub fn signed_multi_comb(point: &ExtendedPoint, s: &Scalar) -> ExtendedPoint {
     let mut result = ExtensiblePoint::identity();
     // Recode Scalar
     // XXX: Better to recode to radix_16 as I don't think that this strategy would have a significant speedup?
-    let mut scalar_one_x = *s + BASE_TABLE.scalar_adjustment;
+    let mut scalar_one_x = *s + SCALAR_ADJUSTMENT_FACTOR;
     // XXX: Halve method does not seem to be working correctly, so we just invert 2 for now
     scalar_one_x = scalar_one_x * Scalar::from(2).invert();
 
-    use wnaf::LookupTable;
     let lookup = LookupTable::from(point);
 
     let loop_end = 446 - (445 % wnaf::WINDOW) - 1;
