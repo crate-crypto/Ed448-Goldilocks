@@ -1,6 +1,9 @@
-# Goldilocks
+<p align="center">
+<img src="resources/bear.png" width = "400">
+</p>
 
-VERY BIG WIP
+
+## BIG WIP
 
 
 ## Field Choice
@@ -40,4 +43,10 @@ Perhaps for interopability in naming:
 
 - CurveXXX = MontgomeryCurve
 
-## DONT FORGET CREDITS FOR DESIGN(DALEK) AND MOTGOMERY CODE AND MIKE AND GOLANG IMPLEMENTATION 
+## Credits
+
+The library design was taken from Dalek's design of Curve25519. The code for elliptic curve arithmetic was also taken from Dalek's library.
+
+The golang implementation of Ed448 and libdecaf were used as references.
+
+Special thanks to Mike Hamburg for answering all of the questions asked regarding Decaf and goldilocks.
