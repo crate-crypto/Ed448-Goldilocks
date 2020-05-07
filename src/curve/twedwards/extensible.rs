@@ -5,6 +5,7 @@ use crate::curve::twedwards::{
 use crate::field::FieldElement;
 use subtle::{Choice, ConstantTimeEq};
 
+/// This is the representation that we will do most of the group operations on.
 // In affine (x,y) is the extensible point (X, Y, Z, T1, T2)
 // Where x = X/Z , y = Y/Z , T1 * T2 = T
 // XXX: I think we have too many point representations,
@@ -41,19 +42,9 @@ impl ExtensiblePoint {
             X: FieldElement::zero(),
             Y: FieldElement::one(),
             Z: FieldElement::one(),
-            T1: FieldElement::zero(),
+            T1: FieldElement::one(),
             T2: FieldElement::zero(),
         }
-    }
-
-    pub fn equals(&self, other: &ExtensiblePoint) -> bool {
-        let ZX = self.Z * other.X;
-        let XZ = self.X * other.Z;
-
-        let ZY = self.Z * other.Y;
-        let YZ = self.Y * other.Z;
-
-        (ZX == XZ) && (ZY == YZ)
     }
 
     pub fn double(&self) -> ExtensiblePoint {
@@ -65,7 +56,7 @@ impl ExtensiblePoint {
         let Y_plus_X = self.Y.add_no_reduce(&self.X);
         let Y_plus_X2 = Y_plus_X.square();
 
-        let T1 = Y_plus_X2 - (XX_plus_YY);
+        let T1 = Y_plus_X2 - XX_plus_YY;
 
         let ZZ = self.Z.square();
 
@@ -85,10 +76,12 @@ impl ExtensiblePoint {
             T2: XX_plus_YY,
         }
     }
-
+    /// Adds two extensible points together
     pub fn add_extensible(&self, other: &ExtensiblePoint) -> ExtensiblePoint {
         self.add_extended(&other.to_extended())
     }
+    /// Adds an extensible point to an extended point
+    /// Returns an extensible point
     pub fn add_extended(&self, other: &ExtendedPoint) -> ExtensiblePoint {
         // Compute T
         let self_T = self.T1 * self.T2;
@@ -125,6 +118,8 @@ impl ExtensiblePoint {
 
         result
     }
+    /// Subtracts an extensible point to an extended point
+    /// Returns an extensible point
     pub fn sub_extended(&self, other: &ExtendedPoint) -> ExtensiblePoint {
         // Compute T
         let self_T = self.T1 * self.T2;
@@ -162,6 +157,8 @@ impl ExtensiblePoint {
         result
     }
 
+    /// Adds an extensible point to an affine niels point
+    /// Returns an Extensible point
     pub fn add_affine_niels(&self, other: AffineNielsPoint) -> ExtensiblePoint {
         let mut a = FieldElement::zero();
         let mut b = FieldElement::zero();
@@ -192,6 +189,8 @@ impl ExtensiblePoint {
         ExtensiblePoint { X, Y, Z, T1, T2 }
     }
 
+    /// Adds an extensible point to a Projective niels point
+    /// Returns an extensible point
     pub fn add_projective_niels(&mut self, other: &ProjectiveNielsPoint) -> ExtensiblePoint {
         self.Z = self.Z * other.Z;
 
@@ -201,6 +200,7 @@ impl ExtensiblePoint {
             td: other.Td,
         })
     }
+    /// Converts an extensible point to an extended point
     pub fn to_extended(&self) -> ExtendedPoint {
         ExtendedPoint {
             X: self.X,
@@ -209,7 +209,7 @@ impl ExtensiblePoint {
             T: self.T1 * self.T2,
         }
     }
-
+    /// Converts an Extensible point to a ProjectiveNiels Point
     pub fn to_projective_niels(&self) -> ProjectiveNielsPoint {
         ProjectiveNielsPoint {
             Y_plus_X: self.X + self.Y,
@@ -217,15 +217,5 @@ impl ExtensiblePoint {
             Z: self.Z + self.Z,
             Td: self.T1 * self.T2 * TWO_D_MINUS_ONE,
         }
-    }
-}
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-    #[test]
-    fn test_basic_double() {
-        let iden = ExtensiblePoint::identity();
-        assert!(iden.equals(&iden.double()));
     }
 }
