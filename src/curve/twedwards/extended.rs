@@ -1,4 +1,4 @@
-use crate::constants::D_MINUS_ONE;
+use crate::constants::TWISTED_D;
 use crate::curve::edwards::ExtendedPoint as EdwardsExtendedPoint;
 use crate::curve::twedwards::affine::AffinePoint;
 use crate::curve::twedwards::extensible::ExtensiblePoint;
@@ -6,7 +6,6 @@ use crate::field::FieldElement;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 #[derive(Copy, Clone, Debug)]
-//XXX: ExtendedProjectivePoint
 pub struct ExtendedPoint {
     pub(crate) X: FieldElement,
     pub(crate) Y: FieldElement,
@@ -25,6 +24,7 @@ impl ConstantTimeEq for ExtendedPoint {
         (XZ.ct_eq(&ZX)) & (YZ.ct_eq(&ZY))
     }
 }
+
 impl ConditionallySelectable for ExtendedPoint {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         ExtendedPoint {
@@ -64,14 +64,15 @@ impl ExtendedPoint {
     pub const fn generator() -> ExtendedPoint {
         crate::constants::TWISTED_EDWARDS_BASE_POINT
     }
-
+    /// Doubles an extended point
     pub(crate) fn double(&self) -> ExtendedPoint {
         self.to_extensible().double().to_extended()
     }
+    /// Adds an extended point to itself
     pub(crate) fn add(&self, other: &ExtendedPoint) -> ExtendedPoint {
         self.to_extensible().add_extended(other).to_extended()
     }
-
+    /// Converts an ExtendedPoint to an ExtensiblePoint
     pub fn to_extensible(&self) -> ExtensiblePoint {
         ExtensiblePoint {
             X: self.X,
@@ -82,9 +83,7 @@ impl ExtendedPoint {
         }
     }
 
-    /// XXX: We initially took this from the go version, according to this function
-    /// it was treating the Extended Coordinates as Extended Jacobian Coordinates.
-    /// Would be interesting to check what the cost of Extended Jacobian is   
+    /// Converts an extended point to Affine co-ordinates
     pub(crate) fn to_affine(&self) -> AffinePoint {
         // Points to consider:
         // - All points where Z=0, translate to (0,0)
@@ -127,27 +126,28 @@ impl ExtendedPoint {
             T: new_x * new_y,
         }
     }
-
+    /// Uses a 2-isogeny to map the point to the Ed448-Goldilocks
     pub fn to_untwisted(&self) -> EdwardsExtendedPoint {
         self.edwards_isogeny(FieldElement::minus_one())
     }
 
+    /// Checks if the point is on the curve
     pub(crate) fn is_on_curve(&self) -> bool {
         let XY = self.X * self.Y;
         let ZT = self.Z * self.T;
 
-        // Y^2 - X^2 == Z^2 + T^2 * (D - 1) // XXX: Put this in a constants file D-1 = TWISTED_D
+        // Y^2 - X^2 == Z^2 + T^2 * (TWISTED_D)
 
         let YY = self.Y.square();
         let XX = self.X.square();
         let ZZ = self.Z.square();
         let TT = self.T.square();
         let lhs = YY - XX;
-        let rhs = ZZ + TT * D_MINUS_ONE;
+        let rhs = ZZ + TT * TWISTED_D;
 
         (XY == ZT) && (lhs == rhs)
     }
-
+    /// Negates a point
     pub fn negate(&self) -> ExtendedPoint {
         ExtendedPoint {
             X: self.X.negate(),
@@ -156,7 +156,7 @@ impl ExtendedPoint {
             T: self.T.negate(),
         }
     }
-
+    /// Torques a point
     pub fn torque(&self) -> ExtendedPoint {
         ExtendedPoint {
             X: self.X.negate(),
