@@ -1,9 +1,11 @@
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
+use subtle::{Choice, ConstantTimeEq};
+
 /// This is the scalar field
 /// size = 4q = 2^446 - 0x8335dc163bb124b65129c96fde933d8d723a70aadc873d6d54a7bb0d
 /// We can therefore use 14 saturated 32-bit limbs
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Scalar(pub(crate) [u32; 14]);
 
 const MODULUS: Scalar = Scalar([
@@ -15,6 +17,20 @@ const R2: Scalar = Scalar([
     0x049b9b60, 0xe3539257, 0xc1b195d9, 0x7af32c4b, 0x88ea1859, 0x0d66de23, 0x5ee4d838, 0xae17cf72,
     0xa3c47c44, 0x1a9cc14b, 0xe4d070af, 0x2052bcb7, 0xf823b729, 0x3402a939,
 ]);
+
+impl ConstantTimeEq for Scalar {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.to_bytes().ct_eq(&other.to_bytes())
+    }
+}
+
+impl PartialEq for Scalar {
+    fn eq(&self, other: &Scalar) -> bool {
+        self.ct_eq(&other).into()
+    }
+}
+impl Eq for Scalar {}
+
 impl From<u32> for Scalar {
     fn from(a: u32) -> Scalar {
         Scalar([a, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
@@ -59,10 +75,7 @@ impl Default for Scalar {
         Scalar::zero()
     }
 }
-fn word_is_zero(word: u32) -> bool {
-    // If the word is zero, then when we minus 1, we should get 0xffffffff
-    word.wrapping_sub(1) == 0xffffffff
-}
+
 impl Scalar {
     pub fn one() -> Scalar {
         Scalar::from(1)
@@ -184,13 +197,6 @@ impl Scalar {
         montgomery_multiply(&result, &Scalar::one())
     }
 
-    fn equals(&self, rhs: &Scalar) -> bool {
-        let mut diff = 0u32;
-        for i in 0..14 {
-            diff |= self[i] ^ rhs[i]
-        }
-        word_is_zero(diff)
-    }
     /// Halves a Scalar
     // XXX: What is expected output on odd Scalars
     pub fn halve(&self) -> Self {
@@ -383,8 +389,8 @@ mod test {
         let a = Scalar::from(5);
         let b = Scalar::from(5);
         let c = Scalar::from(10);
-        assert!(a.equals(&b));
-        assert!(!a.equals(&c))
+        assert!(a == b);
+        assert!(!(a == c))
     }
 
     #[test]
