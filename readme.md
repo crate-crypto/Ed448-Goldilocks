@@ -3,45 +3,59 @@
 </p>
 
 
-## BIG WIP
-
+THIS CODE HAS NOT BEEN AUDITTED OR REVIEWED. USE AT YOUR OWN RISK.
 
 ## Field Choice
 
--  The field size is a Solinas trinomial prime 2^448 - 2^224 -1. This prime is called the Goldilocks prime.
-- We will denote the Goldilocks prime with the variable `q`.
+The field size is a Solinas trinomial prime 2^448 - 2^224 -1. This prime is called the Goldilocks prime.
 
-## Goldilocks Curve
+## Curves
 
-The goldilocks curve is an untwisted edwards curve. x^2 + y^2 = 1 -39081x^2y^2.
+This repository implements three curves explicitly and another curve implicitly.
 
-N.B. The paper says "Ed448-Goldilocks" is the curve and Goldilocks is the prime subgroup, ie the group we get after applying the decaf strategy. This is different from the Goldilocks prime defined above 
-as that is the prime the curve is defined over. 
+The three explicitly implemented curves are:
 
-## Twisted Curve
+- Ed448-Goldilocks
 
-This library will also implement the Twisted variation by using a dual isogeny which is a variation of the affine doubling formula. This dual isogeny will effectively clear the cofactor for the computation on the Twisted curve, and it will allow us to use the faster twisted curve arithmetics. However, this strategy does not clear the cofactor entirely. If the point is of low order, then the Twisted curve arithmetic will produce the identity point, while the remaining untwisted curve arithmetic will produce a point in the small order subgroup.  
+- Curve448
 
-Computing the dual isogeny to clear the cofactor has the same cost as clearing the cofactor through doubling. [Link paper]
+- Twisted-Goldilocks
 
-## Decaf/Ristretto
+## Ed448-Goldilocks Curve
 
-Due to the rationale in the Twisted Curve section, this library will also implement Decaf and Ristretto over the Twisted Edwards Curve.
+- The goldilocks curve is an Edwards curve with affine equation x^2 + y^2 = 1 - 39081x^2y^2 .
+- This curve was defined by Mike Hamburg in https://eprint.iacr.org/2015/625.pdf . 
+- The cofactor of this curve over the goldilocks prime is 4.
+
+## Twisted-Goldilocks Curve
+
+- The twisted goldilocks curve is a Twisted Edwards curve with affine equation y^2 - x^2 = 1 - 39082x^2y^2 .
+- This curve is also defined in https://eprint.iacr.org/2015/625.pdf .
+- The cofactor of this curve over the goldilocks prime is 4.
+
+### Isogeny
+
+- This curve is 2-isogenous to Ed448-Goldilocks. Details of the isogeny can be found here: https://www.shiftleft.org/papers/isogeny/isogeny.pdf
+
+## Curve448
+
+This curve is 2-isogenous to Ed448-Goldilocks. Details of Curve448 can be found here: https://tools.ietf.org/html/rfc7748
+
+The main usage of this curve is for X448.
+
+## Strategy
+
+The main strategy for group arithmetic on Ed448-Goldilocks is to perform the 2-isogeny to map the point to the Twisted-Goldilocks curve, then use the faster Twisted Edwards formulas to perform scalar multiplication. Computing the 2-isogeny then the dual isogeny will pick up a factor of 4 once we map the point back to the Ed448-Goldilocks curve, so the scalar must be adjusted by a factor of 4. Adjusting the scalar is dependent on the point and the scalar. More details can be found in the 2-isogenous paper.
+
+# Decaf
+
+The Decaf strategy [link paper] is used to build a group of prime order from the Twisted Goldilocks curve. The Twisted Goldilocks curve is used as it has faster formulas. We can also use Curve448 or Ed448-Goldilocks. Decaf takes advantage of an isogeny with a Jacobi Quartic curve which is not explicitly defined. Details of this can be found here: https://www.shiftleft.org/papers/decaf/decaf.pdf However, to my knowledge there is no documentation for the Decaf protocol implemented in this repository, which is a tweaked version of the original decaf protocol linked in the paper.
 
 ## Completed Point vs Extensible Point
 
 Deviating from Curve25519-Dalek, this library will implement Extensible points instead of Completed Points. Due to the following observation:
 
-- There is a cost of 3/4 Field multiplications to switch from the CompletedPoint. SO if we were to perform repeated doubling, this would add an extra cost for each doubling.
-
-
-## Interesting Notes
-
-Goldilocks is defined using an untwisted edwards curve, Curve25519 is defined using a Montgomery Curve. Both use an isogeny to compute the corresponding Twisted Edwards  
-
-Perhaps for interopability in naming:
-
-- CurveXXX = MontgomeryCurve
+- There is a cost of 3/4 Field multiplications to switch from the CompletedPoint. So if we were to perform repeated doubling, this would add an extra cost for each doubling in projective form. More details on the ExtensiblePoint can be found here [3.2]: https://www.shiftleft.org/papers/fff/fff.pdf
 
 ## Credits
 
