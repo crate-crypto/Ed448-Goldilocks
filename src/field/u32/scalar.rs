@@ -83,6 +83,15 @@ impl Scalar {
     pub fn zero() -> Scalar {
         Scalar::from(0)
     }
+    /// Divides a scalar by four without reducing
+    /// This is used in the 2-isogeny when mapping points from Ed448-Goldilocks
+    /// to Twisted-Goldilocks
+    pub(crate) fn fourth(&mut self) {
+        for i in 0..=12 {
+            self.0[i] = (self.0[i + 1] << 30) | (self.0[i] >> 2);
+        }
+        self.0[13] >>= 2
+    }
     pub fn bits(&self) -> Vec<bool> {
         let mut bits: Vec<bool> = Vec::with_capacity(14 * 32);
         // We have 14 limbs, each 32 bits
