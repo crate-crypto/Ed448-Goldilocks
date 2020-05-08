@@ -115,7 +115,7 @@ impl ExtendedPoint {
     /// Generic scalar multiplication to compute s*P
     pub fn scalar_mul(&self, scalar: &Scalar) -> ExtendedPoint {
         let mut scalar_div_four = scalar.clone();
-        scalar_div_four.fourth();
+        scalar_div_four.div_by_four();
 
         let twisted_point = self.to_twisted();
         let partial_result = signed_multi_comb(&twisted_point, &scalar_div_four).to_untwisted();

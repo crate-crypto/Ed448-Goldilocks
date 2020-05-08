@@ -86,7 +86,7 @@ impl Scalar {
     /// Divides a scalar by four without reducing
     /// This is used in the 2-isogeny when mapping points from Ed448-Goldilocks
     /// to Twisted-Goldilocks
-    pub(crate) fn fourth(&mut self) {
+    pub(crate) fn div_by_four(&mut self) {
         for i in 0..=12 {
             self.0[i] = (self.0[i + 1] << 30) | (self.0[i] >> 2);
         }
