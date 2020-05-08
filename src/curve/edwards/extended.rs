@@ -4,7 +4,7 @@ use crate::curve::montgomery::montgomery::MontgomeryPoint; // XXX: need to fix t
 use crate::curve::scalar_mul::signed_multi_comb;
 use crate::curve::twedwards::extended::ExtendedPoint as TwistedExtendedPoint;
 use crate::field::{FieldElement, Scalar};
-use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
+use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
 
 /// Represent points on the (untwisted) edwards curve using Extended Homogenous Projective Co-ordinates
 /// (x, y) -> (X/Z, Y/Z, Z, T)
@@ -17,6 +17,17 @@ pub struct ExtendedPoint {
     pub(crate) Y: FieldElement,
     pub(crate) Z: FieldElement,
     pub(crate) T: FieldElement,
+}
+
+impl ConditionallySelectable for ExtendedPoint {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        ExtendedPoint {
+            X: FieldElement::conditional_select(&a.X, &b.X, choice),
+            Y: FieldElement::conditional_select(&a.Y, &b.Y, choice),
+            Z: FieldElement::conditional_select(&a.Z, &b.Z, choice),
+            T: FieldElement::conditional_select(&a.T, &b.T, choice),
+        }
+    }
 }
 
 pub struct CompressedEdwardsY(pub [u8; 57]);
@@ -101,18 +112,33 @@ impl ExtendedPoint {
 
         MontgomeryPoint(u.to_bytes())
     }
-
-    // Since we do not know whether the point p is in the prime subgroup, we need to mul by floor(s/4)
-    // XXX: We also need to add (s mod 4) * P . This strategy does not involve Ristretto/Decaf
+    /// Generic scalar multiplication to compute s*P
     pub fn scalar_mul(&self, scalar: &Scalar) -> ExtendedPoint {
-        let adjusted_scalar = *scalar * Scalar::from(4).invert();
+        let mut scalar_div_four = scalar.clone();
+        scalar_div_four.fourth();
+
         let twisted_point = self.to_twisted();
-        let partial_result = signed_multi_comb(&twisted_point, &adjusted_scalar).to_untwisted();
+        let partial_result = signed_multi_comb(&twisted_point, &scalar_div_four).to_untwisted();
 
-        // // Compute s mod 4
-        // let s_mod_four = Scalar::from(scalar[0] & 3);
+        // Compute s mod 4
+        let s_mod_four = scalar[0] & 3;
 
-        partial_result
+        // Compute all possible values of (s mod 4) P
+        let zero_P = ExtendedPoint::identity();
+        let one_P = self.clone();
+        let two_P = one_P.double();
+        let three_P = two_P.add(self);
+
+        // Assuming equality is constant time, then we conditionally assign the correct value
+        // This should be cheaper than calling double_and_add or a scalar mul operation
+        // as the number of possibilities are so small
+        let mut other_result = ExtendedPoint::identity();
+        other_result.conditional_assign(&zero_P, Choice::from((s_mod_four == 0) as u8));
+        other_result.conditional_assign(&one_P, Choice::from((s_mod_four == 1) as u8));
+        other_result.conditional_assign(&two_P, Choice::from((s_mod_four == 2) as u8));
+        other_result.conditional_assign(&three_P, Choice::from((s_mod_four == 3) as u8));
+
+        partial_result.add(&other_result)
     }
 
     // Standard compression; store Y and sign of X
@@ -287,7 +313,5 @@ mod tests {
         assert!(decompressed_point.is_some());
 
         assert!(gen == decompressed_point.unwrap());
-
-        // XXX: Add a point that should not be on the untwisted curve
     }
 }
