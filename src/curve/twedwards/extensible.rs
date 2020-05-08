@@ -26,7 +26,7 @@ impl ConstantTimeEq for ExtensiblePoint {
         let YZ = self.Y * other.Z;
         let ZY = self.Z * other.Y;
 
-        (XZ.ct_eq(&ZX)) & (YZ.ct_eq(&ZY))
+        XZ.ct_eq(&ZX) & YZ.ct_eq(&ZY)
     }
 }
 impl PartialEq for ExtensiblePoint {
@@ -60,9 +60,9 @@ impl ExtensiblePoint {
 
         let ZZ = self.Z.square();
 
-        let ZZ_plus_ZZ = ZZ + (ZZ);
+        let ZZ_plus_ZZ = ZZ + ZZ;
 
-        let ZZ_YY_XX = ZZ_plus_ZZ - (YY_minus_XX);
+        let ZZ_YY_XX = ZZ_plus_ZZ - YY_minus_XX;
 
         let Z = ZZ_YY_XX * YY_minus_XX;
         let X = ZZ_YY_XX * T1;
