@@ -51,9 +51,9 @@ impl ExtensiblePoint {
         let XX = self.X.square();
         let YY = self.Y.square();
 
-        let XX_plus_YY = XX.add_no_reduce(&YY);
+        let XX_plus_YY = XX + YY;
         let YY_minus_XX = YY - XX;
-        let Y_plus_X = self.Y.add_no_reduce(&self.X);
+        let Y_plus_X = self.Y + self.X;
         let Y_plus_X2 = Y_plus_X.square();
 
         let T1 = Y_plus_X2 - XX_plus_YY;
@@ -98,17 +98,17 @@ impl ExtensiblePoint {
 
         b = self.Y - self.X;
         c = other.Y - other.X;
-        d = other.Y.add_no_reduce(&other.X);
+        d = other.Y + other.X;
         a = c * b;
-        b = self.Y.add_no_reduce(&self.X);
+        b = self.Y + self.X;
         result.Y = d * b;
         b = other_T * self_T;
         result.X = b * TWO_ONE_MINUS_D;
-        b = a.add_no_reduce(&result.Y);
+        b = a + result.Y;
         c = result.Y - a;
         a = self.Z * other.Z;
-        a = a.add_no_reduce(&a);
-        result.Y = a.add_no_reduce(&result.X);
+        a = a + a;
+        result.Y = a + result.X;
         a = a - result.X;
         result.Z = a * result.Y;
         result.X = result.Y * c;
@@ -136,18 +136,18 @@ impl ExtensiblePoint {
 
         b = self.Y - self.X;
         d = other.Y - other.X;
-        c = other.Y.add_no_reduce(&other.X);
+        c = other.Y + other.X;
         a = c * b;
-        b = self.Y.add_no_reduce(&self.X);
+        b = self.Y + self.X;
         result.Y = d * b;
         b = other_T * self_T;
         result.X = b * TWO_ONE_MINUS_D;
-        b = a.add_no_reduce(&result.Y);
+        b = a + result.Y;
         c = result.Y - a;
         a = self.Z * other.Z;
-        a = a.add_no_reduce(&a);
+        a = a + a;
         result.Y = a - result.X;
-        a = a.add_no_reduce(&result.X);
+        a = a + result.X;
         result.Z = a * result.Y;
         result.X = result.Y * c;
         result.Y = a * b;
@@ -172,13 +172,13 @@ impl ExtensiblePoint {
 
         b = Y - X;
         a = other.y_minus_x * b;
-        b = X.add_no_reduce(&Y);
+        b = X + Y;
         Y = other.y_plus_x * b;
         X = other.td * T1 * T2;
-        c = a.add_no_reduce(&Y);
+        c = a + Y;
         b = Y - a;
         Y = Z - X;
-        a = X.add_no_reduce(&Z);
+        a = X + Z;
         Z = a * Y;
         X = Y * b;
         Y = a * c;
