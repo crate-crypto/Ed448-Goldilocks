@@ -136,12 +136,6 @@ impl ProjectiveMontgomeryPoint {
         let x = self.U * self.W.invert();
         MontgomeryPoint(x.to_bytes())
     }
-    pub fn double(&self) -> ProjectiveMontgomeryPoint {
-        todo!()
-    }
-    pub fn add(&self, other: &ProjectiveMontgomeryPoint) -> ProjectiveMontgomeryPoint {
-        todo!()
-    }
 }
 
 #[cfg(test)]
@@ -157,7 +151,7 @@ mod tests {
     }
 
     fn hex_to_array(data: &str) -> [u8; 56] {
-        let mut bytes = hex_decode(data).unwrap();
+        let bytes = hex_decode(data).unwrap();
         slice_to_fixed_array(&bytes)
     }
 
@@ -182,5 +176,19 @@ mod tests {
         // Expected output
         let expected = hex_to_array("9b08f7cc31b7e3e67d22d5aea121074a273bd2b83de09c63faa73d2c22c5d9bbc836647241d953d40c5b12da88120d53177f80e532c41fa0");
         assert_eq!(&output.0[..], &expected[..]);
+    }
+
+    #[test]
+    fn test_l() {
+        let scalar = Scalar::from(200);
+        use crate::constants::GOLDILOCKS_BASE_POINT as bp;
+
+        // Montgomery scalar mul
+        let montgomery_bp = bp.to_montgomery();
+        let montgomery_res = montgomery_bp.mul(&scalar);
+
+        // Goldilocks scalar mul
+        let goldilocks_point = bp.scalar_mul(&scalar);
+        assert_eq!(goldilocks_point.to_montgomery(), montgomery_res);
     }
 }
