@@ -27,17 +27,11 @@ pub const TWISTED_D: Fq = Fq([
     268435454, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
 ]);
 
-/// Edwards `2(d-1)`, equals to -78164
-pub const TWO_D_MINUS_ONE: Fq = Fq([
+/// Twice the Twisted Edwards d which equals to -78164
+pub const TWO_TIMES_TWISTED_D: Fq = Fq([
     268357291, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
     268435454, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
 ]);
-
-/// Edwards `1-d`, equals to 39082
-pub const ONE_MINUS_D: Fq = Fq([39082, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-
-/// Edwards `2(1-d)`, equals to 78164
-pub const TWO_ONE_MINUS_D: Fq = Fq([78164, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
 /// INVSQRT(a*d-1)
 pub const DECAF_FACTOR: Fq = Fq([
@@ -45,7 +39,7 @@ pub const DECAF_FACTOR: Fq = Fq([
     0x04a2d780, 0x0b8d54b6, 0x01a7b8a5, 0x06aa0a1f, 0x0d722fa2, 0x0683bf68, 0x0beb24f7, 0x022d962f,
 ]);
 /// 39082 used in the doubling procedure in montgomery ladder
-pub const A_PLUS_TWO_OVER_FOUR: Fq = ONE_MINUS_D;
+pub const A_PLUS_TWO_OVER_FOUR: Fq = Fq([39082, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
 // The basepoint of Ed448-Goldilocks
 pub const GOLDILOCKS_BASE_POINT: ExtendedPoint = ExtendedPoint {
