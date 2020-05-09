@@ -114,31 +114,40 @@ impl ExtendedPoint {
     }
     /// Generic scalar multiplication to compute s*P
     pub fn scalar_mul(&self, scalar: &Scalar) -> ExtendedPoint {
+        // Compute floor(s/4)
         let mut scalar_div_four = scalar.clone();
         scalar_div_four.div_by_four();
 
-        let twisted_point = self.to_twisted();
-        let partial_result = signed_multi_comb(&twisted_point, &scalar_div_four).to_untwisted();
+        // Use isogeny and dual isogeny to compute phi^-1((s/4) * phi(P))
+        let partial_result = signed_multi_comb(&self.to_twisted(), &scalar_div_four).to_untwisted();
 
-        // Compute s mod 4
+        // Add partial result to (scalar mod 4) * P
+        partial_result.add(&self.scalar_mod_four(&scalar))
+    }
+
+    /// Returns (scalar mod 4) * P in constant time
+    pub fn scalar_mod_four(&self, scalar: &Scalar) -> ExtendedPoint {
+        // Compute compute (scalar mod 4)
         let s_mod_four = scalar[0] & 3;
 
-        // Compute all possible values of (s mod 4) P
-        let zero_P = ExtendedPoint::identity();
-        let one_P = self.clone();
-        let two_P = one_P.double();
-        let three_P = two_P.add(self);
+        // Compute all possible values of (scalar mod 4) * P
+        let zero_p = ExtendedPoint::identity();
+        let one_p = self.clone();
+        let two_p = one_p.double();
+        let three_p = two_p.add(self);
 
-        // Assuming equality is constant time, then we conditionally assign the correct value
+        // Under the reasonable assumption that `==` is constant time
+        // Then the whole function is constant time.
         // This should be cheaper than calling double_and_add or a scalar mul operation
-        // as the number of possibilities are so small
-        let mut other_result = ExtendedPoint::identity();
-        other_result.conditional_assign(&zero_P, Choice::from((s_mod_four == 0) as u8));
-        other_result.conditional_assign(&one_P, Choice::from((s_mod_four == 1) as u8));
-        other_result.conditional_assign(&two_P, Choice::from((s_mod_four == 2) as u8));
-        other_result.conditional_assign(&three_P, Choice::from((s_mod_four == 3) as u8));
+        // as the number of possibilities are so small.
+        // XXX: This claim has not been tested (although it sounds intuitive to me)
+        let mut result = ExtendedPoint::identity();
+        result.conditional_assign(&zero_p, Choice::from((s_mod_four == 0) as u8));
+        result.conditional_assign(&one_p, Choice::from((s_mod_four == 1) as u8));
+        result.conditional_assign(&two_p, Choice::from((s_mod_four == 2) as u8));
+        result.conditional_assign(&three_p, Choice::from((s_mod_four == 3) as u8));
 
-        partial_result.add(&other_result)
+        result
     }
 
     // Standard compression; store Y and sign of X
