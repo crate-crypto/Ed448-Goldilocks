@@ -21,6 +21,7 @@ The three explicitly implemented curves are:
 
 - Twisted-Goldilocks
 
+
 ## Ed448-Goldilocks Curve
 
 - The goldilocks curve is an Edwards curve with affine equation x^2 + y^2 = 1 - 39081x^2y^2 .
@@ -42,6 +43,8 @@ The three explicitly implemented curves are:
 This curve is 2-isogenous to Ed448-Goldilocks. Details of Curve448 can be found here: https://tools.ietf.org/html/rfc7748
 
 The main usage of this curve is for X448.
+
+N.B. In that document there is an Edwards curve that is birationally equivalent to Curve448, with a large `d` value. This curve is not implemented and to my knowledge, has no utility.
 
 ## Strategy
 
