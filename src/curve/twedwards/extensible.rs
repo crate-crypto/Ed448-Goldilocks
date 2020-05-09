@@ -1,4 +1,4 @@
-use crate::constants::{TWO_D_MINUS_ONE, TWO_ONE_MINUS_D};
+use crate::constants::{TWISTED_D, TWO_TIMES_TWISTED_D};
 use crate::curve::twedwards::{
     affine::AffineNielsPoint, extended::ExtendedPoint, projective::ProjectiveNielsPoint,
 };
@@ -46,159 +46,108 @@ impl ExtensiblePoint {
             T2: FieldElement::zero(),
         }
     }
-
+    /// Doubles a point
+    /// (3.3) https://iacr.org/archive/asiacrypt2008/53500329/53500329.pdf
     pub fn double(&self) -> ExtensiblePoint {
-        let XX = self.X.square();
-        let YY = self.Y.square();
-
-        let XX_plus_YY = XX + YY;
-        let YY_minus_XX = YY - XX;
-        let Y_plus_X = self.Y + self.X;
-        let Y_plus_X2 = Y_plus_X.square();
-
-        let T1 = Y_plus_X2 - XX_plus_YY;
-
-        let ZZ = self.Z.square();
-
-        let ZZ_plus_ZZ = ZZ + ZZ;
-
-        let ZZ_YY_XX = ZZ_plus_ZZ - YY_minus_XX;
-
-        let Z = ZZ_YY_XX * YY_minus_XX;
-        let X = ZZ_YY_XX * T1;
-        let Y = YY_minus_XX * XX_plus_YY;
-
+        let A = self.X.square();
+        let B = self.Y.square();
+        let C = self.Z.square() + self.Z.square();
+        let D = A.negate();
+        let E = (self.X + self.Y).square() - A - B;
+        let G = D + B;
+        let F = G - C;
+        let H = D - B;
         ExtensiblePoint {
-            X,
-            Y,
-            Z,
-            T1,
-            T2: XX_plus_YY,
+            X: E * F,
+            Y: G * H,
+            Z: F * G,
+            T1: E,
+            T2: H,
         }
     }
-    /// Adds two extensible points together
+    /// Adds two extensible points together by converting the other point to a ExtendedPoint
     pub fn add_extensible(&self, other: &ExtensiblePoint) -> ExtensiblePoint {
         self.add_extended(&other.to_extended())
     }
     /// Adds an extensible point to an extended point
     /// Returns an extensible point
+    /// (3.1) https://iacr.org/archive/asiacrypt2008/53500329/53500329.pdf
     pub fn add_extended(&self, other: &ExtendedPoint) -> ExtensiblePoint {
-        // Compute T
-        let self_T = self.T1 * self.T2;
-        let other_T = other.T;
-
-        let mut result = ExtensiblePoint::identity();
-
-        let (mut a, mut b, mut c, mut d) = (
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-        );
-
-        b = self.Y - self.X;
-        c = other.Y - other.X;
-        d = other.Y + other.X;
-        a = c * b;
-        b = self.Y + self.X;
-        result.Y = d * b;
-        b = other_T * self_T;
-        result.X = b * TWO_ONE_MINUS_D;
-        b = a + result.Y;
-        c = result.Y - a;
-        a = self.Z * other.Z;
-        a = a + a;
-        result.Y = a + result.X;
-        a = a - result.X;
-        result.Z = a * result.Y;
-        result.X = result.Y * c;
-        result.Y = a * b;
-        result.T1 = b;
-        result.T2 = c;
-
-        result
+        let A = self.X * other.X;
+        let B = self.Y * other.Y;
+        let C = self.T1 * self.T2 * other.T * TWISTED_D;
+        let D = self.Z * other.Z;
+        let E = (self.X + self.Y) * (other.X + other.Y) - A - B;
+        let F = D - C;
+        let G = D + C;
+        let H = B + A;
+        ExtensiblePoint {
+            X: E * F,
+            Y: G * H,
+            T1: E,
+            T2: H,
+            Z: F * G,
+        }
     }
-    /// Subtracts an extensible point to an extended point
+    /// Subtracts an extensible point from an extended point
     /// Returns an extensible point
+    /// This is a direct modification of the addition formula to the negation of `other`
     pub fn sub_extended(&self, other: &ExtendedPoint) -> ExtensiblePoint {
-        // Compute T
-        let self_T = self.T1 * self.T2;
-        let other_T = other.T;
-
-        let mut result = ExtensiblePoint::identity();
-
-        let (mut a, mut b, mut c, mut d) = (
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-        );
-
-        b = self.Y - self.X;
-        d = other.Y - other.X;
-        c = other.Y + other.X;
-        a = c * b;
-        b = self.Y + self.X;
-        result.Y = d * b;
-        b = other_T * self_T;
-        result.X = b * TWO_ONE_MINUS_D;
-        b = a + result.Y;
-        c = result.Y - a;
-        a = self.Z * other.Z;
-        a = a + a;
-        result.Y = a - result.X;
-        a = a + result.X;
-        result.Z = a * result.Y;
-        result.X = result.Y * c;
-        result.Y = a * b;
-        result.T1 = b;
-        result.T1 = c;
-
-        result
+        let A = self.X * other.X;
+        let B = self.Y * other.Y;
+        let C = self.T1 * self.T2 * other.T * TWISTED_D;
+        let D = self.Z * other.Z;
+        let E = (self.X + self.Y) * (other.Y - other.X) + A - B;
+        let F = D + C;
+        let G = D - C;
+        let H = B - A;
+        ExtensiblePoint {
+            X: E * F,
+            Y: G * H,
+            T1: E,
+            T2: H,
+            Z: F * G,
+        }
     }
 
-    /// Adds an extensible point to an affine niels point
+    /// Adds an extensible point to an AffineNiels point
     /// Returns an Extensible point
     pub fn add_affine_niels(&self, other: AffineNielsPoint) -> ExtensiblePoint {
-        let mut a = FieldElement::zero();
-        let mut b = FieldElement::zero();
-        let mut c = FieldElement::zero();
-
-        let mut X = self.X;
-        let mut Y = self.Y;
-        let mut Z = self.Z;
-        let mut T1 = self.T1;
-        let mut T2 = self.T2;
-
-        b = Y - X;
-        a = other.y_minus_x * b;
-        b = X + Y;
-        Y = other.y_plus_x * b;
-        X = other.td * T1 * T2;
-        c = a + Y;
-        b = Y - a;
-        Y = Z - X;
-        a = X + Z;
-        Z = a * Y;
-        X = Y * b;
-        Y = a * c;
-
-        T1 = b;
-        T2 = c;
-
-        ExtensiblePoint { X, Y, Z, T1, T2 }
+        let A = other.y_minus_x * (self.Y - self.X);
+        let B = other.y_plus_x * (self.X + self.Y);
+        let C = other.td * self.T1 * self.T2;
+        let D = B + A;
+        let E = B - A;
+        let F = self.Z - C;
+        let G = self.Z + C;
+        ExtensiblePoint {
+            X: E * F,
+            Y: G * D,
+            Z: F * G,
+            T1: E,
+            T2: D,
+        }
     }
-
-    /// Adds an extensible point to a Projective niels point
+    /// Adds an extensible point to a ProjectiveNiels point
     /// Returns an extensible point
     pub fn add_projective_niels(&mut self, other: &ProjectiveNielsPoint) -> ExtensiblePoint {
-        self.Z = self.Z * other.Z;
+        // This is the only step which makes it different than adding an AffineNielsPoint
+        let Z = self.Z * other.Z;
 
-        self.add_affine_niels(AffineNielsPoint {
-            y_plus_x: other.Y_plus_X,
-            y_minus_x: other.Y_minus_X,
-            td: other.Td,
-        })
+        let A = other.Y_minus_X * (self.Y - self.X);
+        let B = other.Y_plus_X * (self.X + self.Y);
+        let C = other.Td * self.T1 * self.T2;
+        let D = B + A;
+        let E = B - A;
+        let F = Z - C;
+        let G = Z + C;
+        ExtensiblePoint {
+            X: E * F,
+            Y: G * D,
+            Z: F * G,
+            T1: E,
+            T2: D,
+        }
     }
     /// Converts an extensible point to an extended point
     pub fn to_extended(&self) -> ExtendedPoint {
@@ -215,7 +164,7 @@ impl ExtensiblePoint {
             Y_plus_X: self.X + self.Y,
             Y_minus_X: self.Y - self.X,
             Z: self.Z + self.Z,
-            Td: self.T1 * self.T2 * TWO_D_MINUS_ONE,
+            Td: self.T1 * self.T2 * TWO_TIMES_TWISTED_D,
         }
     }
 }
