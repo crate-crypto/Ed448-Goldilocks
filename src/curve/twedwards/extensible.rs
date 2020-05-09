@@ -130,12 +130,15 @@ impl ExtensiblePoint {
     }
     /// Adds an extensible point to a ProjectiveNiels point
     /// Returns an extensible point
+    /// (3.1)[Last set of formulas] https://iacr.org/archive/asiacrypt2008/53500329/53500329.pdf
+    /// This differs from the formula above by a factor of 2. Saving 1 Double
+    /// Cost 8M
     pub fn add_projective_niels(&mut self, other: &ProjectiveNielsPoint) -> ExtensiblePoint {
         // This is the only step which makes it different than adding an AffineNielsPoint
         let Z = self.Z * other.Z;
 
-        let A = other.Y_minus_X * (self.Y - self.X);
-        let B = other.Y_plus_X * (self.X + self.Y);
+        let A = (self.Y - self.X) * other.Y_minus_X;
+        let B = (self.Y + self.X) * other.Y_plus_X;
         let C = other.Td * self.T1 * self.T2;
         let D = B + A;
         let E = B - A;
