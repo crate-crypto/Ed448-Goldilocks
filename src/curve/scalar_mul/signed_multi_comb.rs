@@ -1,9 +1,8 @@
 use super::window::wnaf;
 use super::window::wnaf::LookupTable;
-use crate::curve::twedwards::extended::ExtendedPoint;
-use crate::curve::twedwards::extensible::ExtensiblePoint;
+use crate::curve::twedwards::{extended::ExtendedPoint, extensible::ExtensiblePoint};
 use crate::field::Scalar;
-use subtle::Choice;
+use subtle::{Choice, ConditionallyNegatable};
 
 const SCALAR_ADJUSTMENT_FACTOR: Scalar = Scalar([
     0x4a7bb0cf, 0xc873d6d5, 0x23a70aad, 0xe933d8d7, 0x129c96fd, 0xbb124b65, 0x335dc163, 0x00000008,
