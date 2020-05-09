@@ -77,11 +77,11 @@ impl Default for Scalar {
 }
 
 impl Scalar {
-    pub fn one() -> Scalar {
-        Scalar::from(1)
+    pub const fn one() -> Scalar {
+        Scalar([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     }
-    pub fn zero() -> Scalar {
-        Scalar::from(0)
+    pub const fn zero() -> Scalar {
+        Scalar([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     }
     /// Divides a scalar by four without reducing
     /// This is used in the 2-isogeny when mapping points from Ed448-Goldilocks
