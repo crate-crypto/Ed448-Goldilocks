@@ -28,6 +28,12 @@ impl ConditionallySelectable for ProjectiveNielsPoint {
         }
     }
 }
+impl ConditionallyNegatable for ProjectiveNielsPoint {
+    fn conditional_negate(&mut self, choice: Choice) {
+        FieldElement::conditional_swap(&mut self.Y_minus_X, &mut self.Y_plus_X, choice);
+        self.Td.conditional_negate(choice);
+    }
+}
 
 impl ProjectiveNielsPoint {
     pub fn identity() -> ProjectiveNielsPoint {
@@ -39,24 +45,14 @@ impl ProjectiveNielsPoint {
         }
     }
     pub fn to_extended(&self) -> ExtendedPoint {
-        let two_y = self.Y_plus_X + self.Y_minus_X;
-        let two_x = self.Y_plus_X - self.Y_minus_X;
-
-        assert_ne!(self.Z, FieldElement::zero());
-
-        let T = two_y * two_x;
-        let X = self.Z * two_x;
-        let Y = self.Z * two_y;
-        let Z = self.Z.square();
-
-        ExtendedPoint { X, Y, Z, T }
-    }
-
-    // XXX: Code duplication here as AffineNielsPoint also has this.
-    // We can switch it out once ScalarMul get refactored
-    pub fn conditional_negate(&mut self, choice: Choice) {
-        FieldElement::conditional_swap(&mut self.Y_minus_X, &mut self.Y_plus_X, choice);
-        self.Td.conditional_negate(choice);
+        let A = self.Y_plus_X - self.Y_minus_X;
+        let B = self.Y_plus_X + self.Y_minus_X;
+        ExtendedPoint {
+            X: self.Z * A,
+            Y: self.Z * B,
+            Z: self.Z.square(),
+            T: B * A,
+        }
     }
 }
 #[cfg(test)]
