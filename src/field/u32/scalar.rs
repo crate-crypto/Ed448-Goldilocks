@@ -404,13 +404,8 @@ mod test {
 
     #[test]
     fn test_basic_inversion() {
-        // Inversion of one is one
-        let one = Scalar::from(1);
-        let expected_one = one.invert();
-        assert_eq!(expected_one, one);
-
         // Test inversion from 2 to 100
-        for i in 2..=100 {
+        for i in 1..=100 {
             let x = Scalar::from(i);
             let x_inv = x.invert();
             assert_eq!(x_inv * x, Scalar::one())
