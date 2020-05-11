@@ -15,8 +15,7 @@ pub fn signed_multi_comb(point: &ExtendedPoint, s: &Scalar) -> ExtendedPoint {
     // Recode Scalar
     // XXX: Better to recode to radix_16 as I don't think that this strategy would have a significant speedup?
     let mut scalar_one_x = *s + SCALAR_ADJUSTMENT_FACTOR;
-    // XXX: Halve method does not seem to be working correctly, so we just invert 2 for now
-    scalar_one_x = scalar_one_x * Scalar::from(2).invert();
+    scalar_one_x = scalar_one_x.halve();
 
     let lookup = LookupTable::from(point);
 

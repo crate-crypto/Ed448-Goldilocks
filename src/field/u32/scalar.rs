@@ -206,8 +206,7 @@ impl Scalar {
         montgomery_multiply(&result, &Scalar::one())
     }
 
-    /// Halves a Scalar
-    // XXX: What is expected output on odd Scalars
+    /// Halves a Scalar modulo the prime
     pub fn halve(&self) -> Self {
         let mut result = Scalar::zero();
 
@@ -221,9 +220,10 @@ impl Scalar {
         }
 
         for i in 0..13 {
-            result[i] = (result[i] >> 1) | (result[i] << 31);
+            result[i] = (result[i] >> 1) | (result[i + 1] << 31);
         }
         result[13] = (result[13] >> 1) | ((chain << 31) as u32);
+
         result
     }
 }
