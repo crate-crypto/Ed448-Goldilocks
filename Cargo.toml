@@ -20,9 +20,10 @@ exclude = [
 [dependencies]
 subtle = "2.2.2"
 hex = "0.4"
-
+fiat-crypto = { version = "0.1.4", optional = true}
 
 [features]
 default = ["u32_backend"]
-
+# default = ["fiat_u64_backend"]
+fiat_u64_backend = ["fiat-crypto"]
 u32_backend = []
