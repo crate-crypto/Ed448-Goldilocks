@@ -14,9 +14,27 @@ pub type FieldElement = crate::field::u32::FieldElement28;
 #[cfg(feature = "fiat_u64_backend")]
 pub type FieldElement = crate::field::fiat_u64::FieldElement56;
 
+use subtle::{Choice, ConstantTimeEq};
+impl ConstantTimeEq for FieldElement {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.to_bytes().ct_eq(&other.to_bytes())
+    }
+}
+
+impl PartialEq for FieldElement {
+    fn eq(&self, other: &FieldElement) -> bool {
+        self.ct_eq(&other).into()
+    }
+}
+impl Eq for FieldElement {}
+
 impl FieldElement {
+    /// Checks if a field element is zero
+    pub(crate) fn is_zero(&self) -> Choice {
+        self.ct_eq(&FieldElement::zero())
+    }
     /// Inverts a field element
-    pub(crate) fn invert(&self) -> FieldElement {
+    pub fn invert(&self) -> FieldElement {
         let mut t1 = self.square();
         let (mut t2, _) = t1.inverse_square_root();
         t1 = t2.square();

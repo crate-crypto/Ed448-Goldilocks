@@ -400,7 +400,7 @@ fn test_basic_mul() {
     let c = FieldElement28([1050, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
     let expected_c = mul(&a, &b);
-    assert_eq!(expected_c, c);
+    assert_eq!(expected_c.to_bytes()[..], c.to_bytes()[..]);
 }
 
 #[test]
@@ -427,7 +427,7 @@ fn test_mul() {
     ]);
 
     let result = mul(&x, &y);
-    assert_eq!(result, expected)
+    assert_eq!(result.to_bytes()[..], expected.to_bytes()[..])
 }
 #[test]
 fn test_naive_square() {
@@ -436,14 +436,14 @@ fn test_naive_square() {
     let c = FieldElement28([25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
     let expected_c = mul(&a, &b);
-    assert_eq!(expected_c, c);
+    assert_eq!(expected_c.to_bytes()[..], c.to_bytes()[..]);
 }
 #[test]
 fn test_karatsuba_square() {
     let a = FieldElement28([5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     let expected_c = FieldElement28([25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     let c = square(&a);
-    assert_eq!(expected_c, c);
+    assert_eq!(expected_c.to_bytes()[..], c.to_bytes()[..]);
 
     let d = FieldElement28([
         268396374, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
@@ -451,5 +451,5 @@ fn test_karatsuba_square() {
     ]);
     let expected_d2 = mul(&d, &d);
     let d2 = square(&d);
-    assert_eq!(expected_d2, d2);
+    assert_eq!(expected_d2.to_bytes()[..], d2.to_bytes()[..]);
 }

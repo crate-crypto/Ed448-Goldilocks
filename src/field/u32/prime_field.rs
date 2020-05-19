@@ -1,6 +1,6 @@
 use super::karatsuba;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
-use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
+use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable};
 /// FieldElement28 represents an element in the field
 /// q = 2^448 - 2^224 -1
 ///
@@ -129,19 +129,6 @@ impl ConditionallySelectable for FieldElement28 {
     }
 }
 
-impl ConstantTimeEq for FieldElement28 {
-    fn ct_eq(&self, other: &Self) -> Choice {
-        self.to_bytes().ct_eq(&other.to_bytes())
-    }
-}
-
-impl PartialEq for FieldElement28 {
-    fn eq(&self, other: &FieldElement28) -> bool {
-        self.ct_eq(&other).into()
-    }
-}
-impl Eq for FieldElement28 {}
-
 impl Default for FieldElement28 {
     fn default() -> FieldElement28 {
         FieldElement28::zero()
@@ -171,9 +158,6 @@ impl FieldElement28 {
 /// Checks
 ///
 impl FieldElement28 {
-    pub fn is_zero(&self) -> Choice {
-        self.ct_eq(&FieldElement28::zero())
-    }
     pub fn is_negative(&self) -> Choice {
         let bytes = self.to_bytes();
         (bytes[0] & 1).into()

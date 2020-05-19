@@ -1,7 +1,7 @@
 use fiat_crypto::p448_solinas_64::*;
 
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
-use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
+use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable};
 /// FieldElement56 represents an element in the field
 /// q = 2^448 - 2^224 -1
 ///
@@ -86,19 +86,6 @@ impl ConditionallySelectable for FieldElement56 {
     }
 }
 
-impl ConstantTimeEq for FieldElement56 {
-    fn ct_eq(&self, other: &Self) -> Choice {
-        self.to_bytes().ct_eq(&other.to_bytes())
-    }
-}
-
-impl PartialEq for FieldElement56 {
-    fn eq(&self, other: &FieldElement56) -> bool {
-        self.ct_eq(&other).into()
-    }
-}
-impl Eq for FieldElement56 {}
-
 impl Default for FieldElement56 {
     fn default() -> FieldElement56 {
         FieldElement56::zero()
@@ -134,9 +121,6 @@ impl FieldElement56 {
 /// Checks
 ///
 impl FieldElement56 {
-    pub fn is_zero(&self) -> Choice {
-        self.ct_eq(&FieldElement56::zero())
-    }
     pub fn is_negative(&self) -> Choice {
         let bytes = self.to_bytes();
         (bytes[0] & 1).into()
