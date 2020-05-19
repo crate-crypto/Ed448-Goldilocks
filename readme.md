@@ -62,7 +62,7 @@ Deviating from Curve25519-Dalek, this library will implement Extensible points i
 
 ## Credits
 
-The library design was taken from Dalek's design of Curve25519. The code for elliptic curve arithmetic was also taken from Dalek's library.
+The library design was taken from Dalek's design of Curve25519. The code for Montgomery curve arithmetic was also taken from Dalek's library.
 
 The golang implementation of Ed448 and libdecaf were used as references.
 
