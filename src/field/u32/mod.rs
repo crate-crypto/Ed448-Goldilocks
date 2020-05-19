@@ -1,8 +1,6 @@
 pub mod constants;
-pub mod fq;
+pub mod prime_field;
 
 mod karatsuba;
-mod scalar;
 
-pub use fq::Fq;
-pub use scalar::Scalar;
+pub use prime_field::FieldElement28;

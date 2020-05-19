@@ -81,7 +81,7 @@ impl Scalar {
         Scalar([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     }
     pub const fn zero() -> Scalar {
-        Scalar([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        Scalar([0; 14])
     }
     /// Divides a scalar by four without reducing
     /// This is used in the 2-isogeny when mapping points from Ed448-Goldilocks
@@ -92,6 +92,40 @@ impl Scalar {
         }
         self.0[13] >>= 2
     }
+    // This method was modified from Curve25519-Dalek codebase. [scalar.rs]
+    // We start with 14 u32s and convert them to 56 u8s.
+    // We then use the code copied from Dalek to convert the 56 u8s to radix-16 and re-center the coefficients to be between [-16,16)
+    // XXX: We can recode the scalar without converting it to bytes, will refactor this method to use this and check which is faster.
+    pub(crate) fn to_radix_16(&self) -> [i8; 113] {
+        let bytes = self.to_bytes();
+        let mut output = [0i8; 113];
+
+        // Step 1: change radix.
+        // Convert from radix 256 (bytes) to radix 16 (nibbles)
+        #[inline(always)]
+        fn bot_half(x: u8) -> u8 {
+            (x >> 0) & 15
+        }
+        #[inline(always)]
+        fn top_half(x: u8) -> u8 {
+            (x >> 4) & 15
+        }
+
+        // radix-16
+        for i in 0..56 {
+            output[2 * i] = bot_half(bytes[i]) as i8;
+            output[2 * i + 1] = top_half(bytes[i]) as i8;
+        }
+        // re-center co-efficients to be between [-16, 16)
+        for i in 0..112 {
+            let carry = (output[i] + 16) >> 4;
+            output[i] -= carry << 4;
+            output[i + 1] += carry;
+        }
+
+        output
+    }
+    // XXX: Better if this method returns an array of 448 items
     pub fn bits(&self) -> Vec<bool> {
         let mut bits: Vec<bool> = Vec::with_capacity(14 * 32);
         // We have 14 limbs, each 32 bits
@@ -236,6 +270,7 @@ pub fn add(a: &Scalar, b: &Scalar) -> Scalar {
 
     // a + b
     let mut chain = 0u64;
+    //XXX: Can unroll all of these for loops. They are mainly just ripple carry/borrow adders.
     for i in 0..14 {
         chain += (a[i] as u64) + (b[i] as u64);
         // Low 32 bits are the results
@@ -424,5 +459,13 @@ mod test {
         ]);
         let got = Scalar::from_bytes(scalar.to_bytes());
         assert_eq!(scalar, got)
+    }
+    #[test]
+    fn test_debug() {
+        let k = Scalar([
+            200, 210, 250, 145, 130, 180, 147, 122, 222, 230, 214, 247, 203, 32,
+        ]);
+        let s = k;
+        dbg!(&s.to_radix_16()[..]);
     }
 }

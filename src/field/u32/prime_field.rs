@@ -1,72 +1,76 @@
 use super::karatsuba;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
-/// Fq represents an element in the field
+/// FieldElement28 represents an element in the field
 /// q = 2^448 - 2^224 -1
 ///
-/// Fq is represented using radix 2^28 as 16 u32s. We therefore represent
+/// FieldElement28 is represented using radix 2^28 as 16 u32s. We therefore represent
 /// a field element `x` as x_0 + x_1 * 2^{28 * 1} + .... + x_15 * 2^{28 * 15}
 
 #[derive(Copy, Clone, Debug)]
-pub struct Fq(pub(crate) [u32; 16]);
+pub struct FieldElement28(pub(crate) [u32; 16]);
 
 ////
 /// Trait Implementations
 ///
 
-impl Index<usize> for Fq {
+impl Index<usize> for FieldElement28 {
     type Output = u32;
     fn index(&self, a: usize) -> &Self::Output {
         &self.0[a]
     }
 }
 
-impl IndexMut<usize> for Fq {
+impl IndexMut<usize> for FieldElement28 {
     fn index_mut(&mut self, a: usize) -> &mut Self::Output {
         &mut self.0[a]
     }
 }
-impl Mul<Fq> for Fq {
-    type Output = Fq;
-    fn mul(self, rhs: Fq) -> Self::Output {
+impl Mul<FieldElement28> for FieldElement28 {
+    type Output = FieldElement28;
+    fn mul(self, rhs: FieldElement28) -> Self::Output {
         karatsuba::mul(&self, &rhs)
     }
 }
-impl Mul<&Fq> for Fq {
-    type Output = Fq;
-    fn mul(self, rhs: &Fq) -> Self::Output {
+impl Mul<&FieldElement28> for FieldElement28 {
+    type Output = FieldElement28;
+    fn mul(self, rhs: &FieldElement28) -> Self::Output {
         karatsuba::mul(&self, rhs)
     }
 }
 
-impl Add<Fq> for Fq {
-    type Output = Fq;
-    fn add(self, rhs: Fq) -> Self::Output {
+impl Add<FieldElement28> for FieldElement28 {
+    type Output = FieldElement28;
+    fn add(self, rhs: FieldElement28) -> Self::Output {
         let mut inter_res = self.add_no_reduce(&rhs);
         inter_res.weak_reduce();
         inter_res
     }
 }
-impl Sub<Fq> for Fq {
-    type Output = Fq;
-    fn sub(mut self, rhs: Fq) -> Self::Output {
-        self = Fq::bias(&self, 2);
+impl Sub<FieldElement28> for FieldElement28 {
+    type Output = FieldElement28;
+    fn sub(mut self, rhs: FieldElement28) -> Self::Output {
+        self = FieldElement28::bias(&self, 2);
         let mut inter_res = self.sub_no_reduce(&rhs);
         inter_res.weak_reduce();
         inter_res
     }
 }
 
-impl ConditionallyNegatable for Fq {
+impl ConditionallyNegatable for FieldElement28 {
     fn conditional_negate(&mut self, choice: Choice) {
         let self_neg = self.clone().negate();
         self.conditional_assign(&self_neg, choice);
     }
 }
 
-impl ConditionallySelectable for Fq {
-    fn conditional_select(a: &Fq, b: &Fq, choice: Choice) -> Fq {
-        Fq([
+impl ConditionallySelectable for FieldElement28 {
+    fn conditional_select(
+        a: &FieldElement28,
+        b: &FieldElement28,
+        choice: Choice,
+    ) -> FieldElement28 {
+        FieldElement28([
             u32::conditional_select(&a.0[0], &b.0[0], choice),
             u32::conditional_select(&a.0[1], &b.0[1], choice),
             u32::conditional_select(&a.0[2], &b.0[2], choice),
@@ -86,7 +90,7 @@ impl ConditionallySelectable for Fq {
         ])
     }
 
-    fn conditional_assign(&mut self, other: &Fq, choice: Choice) {
+    fn conditional_assign(&mut self, other: &FieldElement28, choice: Choice) {
         self.0[0].conditional_assign(&other.0[0], choice);
         self.0[1].conditional_assign(&other.0[1], choice);
         self.0[2].conditional_assign(&other.0[2], choice);
@@ -105,7 +109,7 @@ impl ConditionallySelectable for Fq {
         self.0[15].conditional_assign(&other.0[15], choice);
     }
 
-    fn conditional_swap(a: &mut Fq, b: &mut Fq, choice: Choice) {
+    fn conditional_swap(a: &mut FieldElement28, b: &mut FieldElement28, choice: Choice) {
         u32::conditional_swap(&mut a.0[0], &mut b.0[0], choice);
         u32::conditional_swap(&mut a.0[1], &mut b.0[1], choice);
         u32::conditional_swap(&mut a.0[2], &mut b.0[2], choice);
@@ -125,42 +129,22 @@ impl ConditionallySelectable for Fq {
     }
 }
 
-impl ConstantTimeEq for Fq {
+impl ConstantTimeEq for FieldElement28 {
     fn ct_eq(&self, other: &Self) -> Choice {
-        let mut difference = *self - *other;
-        difference.strong_reduce();
-
-        let zero = Fq::zero();
-
-        difference[0].ct_eq(&zero[0])
-            & difference[1].ct_eq(&zero[1])
-            & difference[2].ct_eq(&zero[2])
-            & difference[3].ct_eq(&zero[3])
-            & difference[4].ct_eq(&zero[4])
-            & difference[5].ct_eq(&zero[5])
-            & difference[6].ct_eq(&zero[6])
-            & difference[7].ct_eq(&zero[7])
-            & difference[8].ct_eq(&zero[8])
-            & difference[9].ct_eq(&zero[9])
-            & difference[10].ct_eq(&zero[10])
-            & difference[11].ct_eq(&zero[11])
-            & difference[12].ct_eq(&zero[12])
-            & difference[13].ct_eq(&zero[13])
-            & difference[14].ct_eq(&zero[14])
-            & difference[15].ct_eq(&zero[15])
+        self.to_bytes().ct_eq(&other.to_bytes())
     }
 }
 
-impl PartialEq for Fq {
-    fn eq(&self, other: &Fq) -> bool {
+impl PartialEq for FieldElement28 {
+    fn eq(&self, other: &FieldElement28) -> bool {
         self.ct_eq(&other).into()
     }
 }
-impl Eq for Fq {}
+impl Eq for FieldElement28 {}
 
-impl Default for Fq {
-    fn default() -> Fq {
-        Fq::zero()
+impl Default for FieldElement28 {
+    fn default() -> FieldElement28 {
+        FieldElement28::zero()
     }
 }
 
@@ -168,15 +152,15 @@ impl Default for Fq {
 /// Constants
 ///
 
-impl Fq {
-    pub const fn zero() -> Fq {
-        Fq([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+impl FieldElement28 {
+    pub const fn zero() -> FieldElement28 {
+        FieldElement28([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     }
-    pub const fn one() -> Fq {
-        Fq([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    pub const fn one() -> FieldElement28 {
+        FieldElement28([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     }
-    pub fn minus_one() -> Fq {
-        Fq([
+    pub fn minus_one() -> FieldElement28 {
+        FieldElement28([
             268435454, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
             268435454, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
         ])
@@ -186,9 +170,9 @@ impl Fq {
 ///
 /// Checks
 ///
-impl Fq {
+impl FieldElement28 {
     pub fn is_zero(&self) -> Choice {
-        self.ct_eq(&Fq::zero())
+        self.ct_eq(&FieldElement28::zero())
     }
     pub fn is_negative(&self) -> Choice {
         let bytes = self.to_bytes();
@@ -199,16 +183,16 @@ impl Fq {
 ///
 /// Serialisation
 ///
-impl Fq {
+impl FieldElement28 {
     /// Helper function for internally constructing a field element
-    pub(crate) const fn from_raw_slice(slice: [u32; 16]) -> Fq {
-        Fq(slice)
+    pub(crate) const fn from_raw_slice(slice: [u32; 16]) -> FieldElement28 {
+        FieldElement28(slice)
     }
 
     /// This does not check if the encoding is canonical (ie if the input is reduced)
     /// We parse in chunks of 56 bytes, the first 28 bytes will contain the i'th limb
     /// and the second 28 bytes will contain the (2i+1)'th limb
-    pub(crate) fn from_bytes(bytes: &[u8; 56]) -> Fq {
+    pub(crate) fn from_bytes(bytes: &[u8; 56]) -> FieldElement28 {
         let load7 = |input: &[u8]| -> u64 {
             (input[0] as u64)
                 | ((input[1] as u64) << 8)
@@ -220,7 +204,7 @@ impl Fq {
         };
 
         const MASK: u32 = (1 << 28) - 1;
-        let mut res = Fq::zero();
+        let mut res = FieldElement28::zero();
         for i in 0..8 {
             // Load i'th 56 bytes
             let out = load7(&bytes[i * 7..]);
@@ -252,84 +236,19 @@ impl Fq {
     }
 }
 
-impl Fq {
-    /// Inverts a field element
-    pub(crate) fn invert(&self) -> Fq {
-        let mut t1 = self.square();
-        let (mut t2, _) = t1.inverse_square_root();
-        t1 = t2.square();
-        t2 = t1 * self;
-        t2
-    }
+impl FieldElement28 {
     /// Sqaures a field element
-    pub(crate) fn square(&self) -> Fq {
+    pub(crate) fn square(&self) -> FieldElement28 {
         karatsuba::square(self)
-    }
-    /// Squares a field element  `n` times
-    fn square_n(&self, mut n: u32) -> Fq {
-        let mut result = self.square();
-
-        // Decrease value by 1 since we just did a squaring
-        n = n - 1;
-
-        for _ in 0..n {
-            result = result.square();
-        }
-
-        result
-    }
-
-    /// Computes the inverse square root of a field element
-    /// Returns the result and a boolean to indicate whether self
-    /// was a Quadratic residue
-    pub(crate) fn inverse_square_root(&self) -> (Fq, bool) {
-        let (mut l0, mut l1, mut l2) = (Fq::zero(), Fq::zero(), Fq::zero());
-
-        l1 = self.square();
-        l2 = l1 * self;
-        l1 = l2.square();
-        l2 = l1 * self;
-        l1 = l2.square_n(3);
-        l0 = l2 * l1;
-        l1 = l0.square_n(3);
-        l0 = l2 * l1;
-        l2 = l0.square_n(9);
-        l1 = l0 * l2;
-        l0 = l1 * l1;
-        l2 = l0 * self;
-        l0 = l2.square_n(18);
-        l2 = l1 * l0;
-        l0 = l2.square_n(37);
-        l1 = l2 * l0;
-        l0 = l1.square_n(37);
-        l1 = l2 * l0;
-        l0 = l1.square_n(111);
-        l2 = l1 * l0;
-        l0 = l2.square();
-        l1 = l0 * self;
-        l0 = l1.square_n(223);
-        l1 = l2 * l0;
-        l2 = l1.square();
-        l0 = l2 * self;
-
-        let is_residue = l0 == Fq::one();
-        (l1, is_residue)
-    }
-
-    /// Computes the square root ratio of two elements
-    pub(crate) fn sqrt_ratio(u: &Fq, v: &Fq) -> (Fq, bool) {
-        let x = *u * v;
-        let (inv_sqrt_x, is_res) = x.inverse_square_root();
-        (inv_sqrt_x * u, is_res)
     }
 
     /// Negates a field element
-    pub(crate) fn negate(&self) -> Fq {
-        Fq::zero() - *self
+    pub(crate) fn negate(&self) -> FieldElement28 {
+        FieldElement28::zero() - *self
     }
 
     /// Bias adds 'b' multiples of `p` to self
-    pub(crate) fn bias(a: &Fq, b: u32) -> Fq {
+    pub(crate) fn bias(a: &FieldElement28, b: u32) -> FieldElement28 {
         const MASK: u32 = (1 << 28) - 1;
 
         let co1 = b * MASK;
@@ -338,7 +257,7 @@ impl Fq {
         let lo = [co1; 4];
         let hi = [co2, co1, co1, co1];
 
-        Fq([
+        FieldElement28([
             a[0].wrapping_add(lo[0]),
             a[1].wrapping_add(lo[1]),
             a[2].wrapping_add(lo[2]),
@@ -529,8 +448,8 @@ impl Fq {
 
     /// Adds two field elements together
     /// Result is not reduced
-    pub(crate) fn add_no_reduce(&self, rhs: &Fq) -> Fq {
-        Fq([
+    pub(crate) fn add_no_reduce(&self, rhs: &FieldElement28) -> FieldElement28 {
+        FieldElement28([
             self[0] + rhs[0],
             self[1] + rhs[1],
             self[2] + rhs[2],
@@ -552,8 +471,8 @@ impl Fq {
 
     /// Subtracts the two field elements from each other
     /// Result is not reduced
-    pub(crate) fn sub_no_reduce(&self, rhs: &Fq) -> Fq {
-        Fq([
+    pub(crate) fn sub_no_reduce(&self, rhs: &FieldElement28) -> FieldElement28 {
+        FieldElement28([
             self[0].wrapping_sub(rhs[0]),
             self[1].wrapping_sub(rhs[1]),
             self[2].wrapping_sub(rhs[2]),
@@ -571,5 +490,93 @@ impl Fq {
             self[14].wrapping_sub(rhs[14]),
             self[15].wrapping_sub(rhs[15]),
         ])
+    }
+
+    //// Debug
+    /// Squares a field element  `n` times
+    fn square_n1(&self, mut n: u32) -> FieldElement28 {
+        let mut result = self.square();
+
+        // Decrease value by 1 since we just did a squaring
+        n = n - 1;
+
+        for _ in 0..n {
+            result = result.square();
+        }
+
+        result
+    }
+
+    /// Computes the inverse square root of a field element
+    /// Returns the result and a boolean to indicate whether self
+    /// was a Quadratic residue
+    pub(crate) fn inverse_square_root1(&self) -> (FieldElement28, bool) {
+        let (mut l0, mut l1, mut l2) = (
+            FieldElement28::zero(),
+            FieldElement28::zero(),
+            FieldElement28::zero(),
+        );
+
+        l1 = self.square();
+        l2 = l1 * self;
+        l1 = l2.square();
+        l2 = l1 * self;
+        l1 = l2.square_n1(3);
+        l0 = l2 * l1;
+        l1 = l0.square_n1(3);
+        l0 = l2 * l1;
+        l2 = l0.square_n1(9);
+        l1 = l0 * l2;
+        l0 = l1 * l1;
+        l2 = l0 * self;
+        l0 = l2.square_n1(18);
+        l2 = l1 * l0;
+        l0 = l2.square_n1(37);
+        l1 = l2 * l0;
+        l0 = l1.square_n1(37);
+        l1 = l2 * l0;
+        l0 = l1.square_n1(111);
+        l2 = l1 * l0;
+        l0 = l2.square();
+        l1 = l0 * self;
+        l0 = l1.square_n1(223);
+        l1 = l2 * l0;
+        l2 = l1.square();
+        l0 = l2 * self;
+
+        let is_residue = l0 == FieldElement28::one();
+        (l1, is_residue)
+    }
+    pub(crate) fn invert1(&self) -> FieldElement28 {
+        let mut t1 = self.square();
+        let (mut t2, _) = t1.inverse_square_root1();
+        t1 = t2.square();
+        t2 = t1 * self;
+        t2
+    }
+}
+
+mod test {
+    use super::*;
+    #[test]
+    fn test_p() {
+        let a = FieldElement28::one().negate();
+        let td = FieldElement28([
+            268396373, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
+            268435454, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455, 268435455,
+        ]);
+        // 39082/39081
+        let num = FieldElement28([39082, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        let den = FieldElement28([39081, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).invert1();
+        let td = (num * den) - FieldElement28::one();
+        let (k, _) = (td * a).inverse_square_root1();
+        assert_eq!(
+            k,
+            FieldElement28([
+                0x05572736, 0x042ef0f4, 0x00ce5296, 0x07bf6aa2, 0x0ed26033, 0x0f4fd6ed, 0x0a839a66,
+                0x0968c14b, 0x04a2d780, 0x0b8d54b6, 0x01a7b8a5, 0x06aa0a1f, 0x0d722fa2, 0x0683bf68,
+                0x0beb24f7, 0x022d962f,
+            ])
+        )
     }
 }
