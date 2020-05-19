@@ -297,14 +297,43 @@ mod tests {
         bytes.reverse();
         FieldElement::from_bytes(&slice_to_fixed_array(&bytes))
     }
+
     #[test]
     fn test_isogeny() {
-        let x  = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
-        let y  = hex_to_field("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
+        let x = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
+        let y = hex_to_field("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
         let a = AffinePoint { x, y }.to_extended();
         let twist_a = a.to_twisted().to_untwisted();
         assert!(twist_a == a.double().double())
     }
+
+    // XXX: Move this to constants folder to test all global constants
+    #[test]
+    fn derive_base_points() {
+        use crate::constants::{GOLDILOCKS_BASE_POINT, TWISTED_EDWARDS_BASE_POINT};
+
+        // This was the original basepoint which had order 2q;
+        let old_x = hex_to_field("4F1970C66BED0DED221D15A622BF36DA9E146570470F1767EA6DE324A3D3A46412AE1AF72AB66511433B80E18B00938E2626A82BC70CC05E");
+        let old_y = hex_to_field("693F46716EB6BC248876203756C9C7624BEA73736CA3984087789C1E05A0C2D73AD3FF1CE67C39C4FDBD132C4ED7C8AD9808795BF230FA14");
+        let old_bp = AffinePoint { x: old_x, y: old_y }.to_extended();
+
+        // This is the new basepoint, that is in the ed448 paper
+        let new_x = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
+        let new_y = hex_to_field("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
+        let new_bp = AffinePoint { x: new_x, y: new_y }.to_extended();
+
+        // Doubling the old basepoint, should give us the new basepoint
+        assert_eq!(old_bp.double(), new_bp);
+
+        // XXX: Unfortunately, the test vectors in libdecaf currently use the old basepoint.
+        // We need to update this. But for now, I use the old basepoint so that I can check against libdecaf
+
+        assert_eq!(GOLDILOCKS_BASE_POINT, old_bp);
+
+        // The Twisted basepoint can be derived by using the isogeny
+        assert_eq!(old_bp.to_twisted(), TWISTED_EDWARDS_BASE_POINT)
+    }
+
     #[test]
     fn test_is_on_curve() {
         let x  = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
