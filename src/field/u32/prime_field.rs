@@ -89,44 +89,6 @@ impl ConditionallySelectable for FieldElement28 {
             u32::conditional_select(&a.0[15], &b.0[15], choice),
         ])
     }
-
-    fn conditional_assign(&mut self, other: &FieldElement28, choice: Choice) {
-        self.0[0].conditional_assign(&other.0[0], choice);
-        self.0[1].conditional_assign(&other.0[1], choice);
-        self.0[2].conditional_assign(&other.0[2], choice);
-        self.0[3].conditional_assign(&other.0[3], choice);
-        self.0[4].conditional_assign(&other.0[4], choice);
-        self.0[5].conditional_assign(&other.0[5], choice);
-        self.0[6].conditional_assign(&other.0[6], choice);
-        self.0[7].conditional_assign(&other.0[7], choice);
-        self.0[8].conditional_assign(&other.0[8], choice);
-        self.0[9].conditional_assign(&other.0[9], choice);
-        self.0[10].conditional_assign(&other.0[10], choice);
-        self.0[11].conditional_assign(&other.0[11], choice);
-        self.0[12].conditional_assign(&other.0[12], choice);
-        self.0[13].conditional_assign(&other.0[13], choice);
-        self.0[14].conditional_assign(&other.0[14], choice);
-        self.0[15].conditional_assign(&other.0[15], choice);
-    }
-
-    fn conditional_swap(a: &mut FieldElement28, b: &mut FieldElement28, choice: Choice) {
-        u32::conditional_swap(&mut a.0[0], &mut b.0[0], choice);
-        u32::conditional_swap(&mut a.0[1], &mut b.0[1], choice);
-        u32::conditional_swap(&mut a.0[2], &mut b.0[2], choice);
-        u32::conditional_swap(&mut a.0[3], &mut b.0[3], choice);
-        u32::conditional_swap(&mut a.0[4], &mut b.0[4], choice);
-        u32::conditional_swap(&mut a.0[5], &mut b.0[5], choice);
-        u32::conditional_swap(&mut a.0[6], &mut b.0[6], choice);
-        u32::conditional_swap(&mut a.0[7], &mut b.0[7], choice);
-        u32::conditional_swap(&mut a.0[8], &mut b.0[8], choice);
-        u32::conditional_swap(&mut a.0[9], &mut b.0[9], choice);
-        u32::conditional_swap(&mut a.0[10], &mut b.0[10], choice);
-        u32::conditional_swap(&mut a.0[11], &mut b.0[11], choice);
-        u32::conditional_swap(&mut a.0[12], &mut b.0[12], choice);
-        u32::conditional_swap(&mut a.0[13], &mut b.0[13], choice);
-        u32::conditional_swap(&mut a.0[14], &mut b.0[14], choice);
-        u32::conditional_swap(&mut a.0[15], &mut b.0[15], choice);
-    }
 }
 
 impl Default for FieldElement28 {
