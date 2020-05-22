@@ -2,25 +2,17 @@ use crate::curve::twedwards::extended::ExtendedPoint;
 use crate::curve::twedwards::projective::ProjectiveNielsPoint;
 use subtle::{ConditionallySelectable, ConstantTimeEq};
 
-pub(crate) const WINDOW: usize = 5;
-pub(crate) const WINDOW_MASK: usize = (1 << WINDOW) - 1;
-pub(crate) const WINDOW_T_MASK: usize = WINDOW_MASK >> 1;
-pub(crate) const TABLE_SIZE: usize = 16;
-
-pub struct LookupTable([ProjectiveNielsPoint; TABLE_SIZE]);
+pub struct LookupTable([ProjectiveNielsPoint; 8]);
 
 /// Precomputes odd multiples of the point passed in
 impl From<&ExtendedPoint> for LookupTable {
     fn from(point: &ExtendedPoint) -> LookupTable {
         let P = point.to_extensible();
-        let P2 = P.double().to_projective_niels();
 
-        let mut table = [P.to_projective_niels(); TABLE_SIZE];
-        let mut p_original = point.to_extensible();
+        let mut table = [P.to_projective_niels(); 8];
 
-        for i in 1..TABLE_SIZE {
-            p_original = p_original.add_projective_niels(&P2);
-            table[i] = p_original.to_projective_niels();
+        for i in 1..8 {
+            table[i] = P.add_projective_niels(&table[i - 1]).to_projective_niels();
         }
 
         LookupTable(table)
@@ -32,11 +24,29 @@ impl LookupTable {
     pub fn select(&self, index: u32) -> ProjectiveNielsPoint {
         let mut result = ProjectiveNielsPoint::identity();
 
-        for i in 0..TABLE_SIZE {
+        for i in 1..9 {
             let swap = index.ct_eq(&(i as u32));
-            result.conditional_assign(&self.0[i], swap);
+            result.conditional_assign(&self.0[i - 1], swap);
         }
         result
     }
 }
+
 // XXX: Add back tests to ensure that select works correctly
+
+#[test]
+fn test_lookup() {
+    let p = ExtendedPoint::generator();
+    let points = LookupTable::from(&p);
+
+    let mut expected_point = ExtendedPoint::identity();
+    for i in 0..8 {
+        let selected_point = points.select(i);
+        assert_eq!(selected_point.to_extended(), expected_point);
+
+        expected_point = expected_point
+            .to_extensible()
+            .add_extended(&p)
+            .to_extended();
+    }
+}
