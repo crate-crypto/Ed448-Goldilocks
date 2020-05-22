@@ -12,7 +12,7 @@ const MODULUS: Scalar = Scalar([
     0xab5844f3, 0x2378c292, 0x8dc58f55, 0x216cc272, 0xaed63690, 0xc44edb49, 0x7cca23e9, 0xffffffff,
     0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x3fffffff,
 ]);
-// Montomomery R^2
+// Montgomomery R^2
 const R2: Scalar = Scalar([
     0x049b9b60, 0xe3539257, 0xc1b195d9, 0x7af32c4b, 0x88ea1859, 0x0d66de23, 0x5ee4d838, 0xae17cf72,
     0xa3c47c44, 0x1a9cc14b, 0xe4d070af, 0x2052bcb7, 0xf823b729, 0x3402a939,
@@ -83,7 +83,7 @@ impl Scalar {
     pub const fn zero() -> Scalar {
         Scalar([0; 14])
     }
-    /// Divides a scalar by four without reducing
+    /// Divides a scalar by four without reducing mod p
     /// This is used in the 2-isogeny when mapping points from Ed448-Goldilocks
     /// to Twisted-Goldilocks
     pub(crate) fn div_by_four(&mut self) {
@@ -116,9 +116,9 @@ impl Scalar {
             output[2 * i] = bot_half(bytes[i]) as i8;
             output[2 * i + 1] = top_half(bytes[i]) as i8;
         }
-        // re-center co-efficients to be between [-16, 16)
+        // re-center co-efficients to be between [-8, 8)
         for i in 0..112 {
-            let carry = (output[i] + 16) >> 4;
+            let carry = (output[i] + 8) >> 4;
             output[i] -= carry << 4;
             output[i + 1] += carry;
         }
