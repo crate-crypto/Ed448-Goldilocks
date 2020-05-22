@@ -179,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn test_l() {
+    fn test_montgomery_edwards() {
         let scalar = Scalar::from(200);
         use crate::constants::GOLDILOCKS_BASE_POINT as bp;
 
