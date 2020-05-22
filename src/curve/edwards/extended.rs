@@ -1,7 +1,7 @@
 use crate::constants::EDWARDS_D;
 use crate::curve::edwards::affine::AffinePoint;
 use crate::curve::montgomery::montgomery::MontgomeryPoint; // XXX: need to fix this path
-use crate::curve::scalar_mul::signed_multi_comb;
+use crate::curve::scalar_mul::variable_base;
 use crate::curve::twedwards::extended::ExtendedPoint as TwistedExtendedPoint;
 use crate::field::{FieldElement, Scalar};
 use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
@@ -101,14 +101,14 @@ impl ExtendedPoint {
     }
 
     pub fn to_montgomery(&self) -> MontgomeryPoint {
-        // u = Y^2 / X^2
+        // u = y^2 * [(1-dy^2)/(1-y^2)]
 
         let affine = self.to_affine();
 
-        let xx = affine.x.square();
         let yy = affine.y.square();
+        let dyy = EDWARDS_D * yy;
 
-        let u = yy * xx.invert();
+        let u = yy * (FieldElement::one() - dyy) * (FieldElement::one() - yy).invert();
 
         MontgomeryPoint(u.to_bytes())
     }
@@ -119,8 +119,7 @@ impl ExtendedPoint {
         scalar_div_four.div_by_four();
 
         // Use isogeny and dual isogeny to compute phi^-1((s/4) * phi(P))
-        let partial_result = signed_multi_comb(&self.to_twisted(), &scalar_div_four).to_untwisted();
-
+        let partial_result = variable_base(&self.to_twisted(), &scalar_div_four).to_untwisted();
         // Add partial result to (scalar mod 4) * P
         partial_result.add(&self.scalar_mod_four(&scalar))
     }
