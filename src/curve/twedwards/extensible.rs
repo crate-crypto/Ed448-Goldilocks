@@ -42,8 +42,8 @@ impl ExtensiblePoint {
             X: FieldElement::zero(),
             Y: FieldElement::one(),
             Z: FieldElement::one(),
-            T1: FieldElement::one(),
-            T2: FieldElement::zero(),
+            T1: FieldElement::zero(),
+            T2: FieldElement::one(),
         }
     }
     /// Doubles a point
@@ -133,7 +133,7 @@ impl ExtensiblePoint {
     /// (3.1)[Last set of formulas] https://iacr.org/archive/asiacrypt2008/53500329/53500329.pdf
     /// This differs from the formula above by a factor of 2. Saving 1 Double
     /// Cost 8M
-    pub fn add_projective_niels(&mut self, other: &ProjectiveNielsPoint) -> ExtensiblePoint {
+    pub fn add_projective_niels(&self, other: &ProjectiveNielsPoint) -> ExtensiblePoint {
         // This is the only step which makes it different than adding an AffineNielsPoint
         let Z = self.Z * other.Z;
 
