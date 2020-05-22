@@ -1,4 +1,4 @@
-use crate::curve::twedwards::extended::ExtendedPoint;
+use crate::curve::twedwards::{extended::ExtendedPoint, extensible::ExtensiblePoint};
 use crate::field::FieldElement;
 use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable};
 
@@ -17,6 +17,13 @@ pub struct ProjectiveNielsPoint {
     pub(crate) Td: FieldElement,
     pub(crate) Z: FieldElement,
 }
+
+impl PartialEq for ProjectiveNielsPoint {
+    fn eq(&self, other: &ProjectiveNielsPoint) -> bool {
+        self.to_extended().eq(&other.to_extended())
+    }
+}
+impl Eq for ProjectiveNielsPoint {}
 
 impl ConditionallySelectable for ProjectiveNielsPoint {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
@@ -37,12 +44,7 @@ impl ConditionallyNegatable for ProjectiveNielsPoint {
 
 impl ProjectiveNielsPoint {
     pub fn identity() -> ProjectiveNielsPoint {
-        ProjectiveNielsPoint {
-            Y_plus_X: FieldElement::one(),
-            Y_minus_X: FieldElement::one(),
-            Td: FieldElement::zero(),
-            Z: FieldElement::one(),
-        }
+        ExtensiblePoint::identity().to_projective_niels()
     }
     pub fn to_extended(&self) -> ExtendedPoint {
         let A = self.Y_plus_X - self.Y_minus_X;
