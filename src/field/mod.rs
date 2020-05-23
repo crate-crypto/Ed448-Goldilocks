@@ -34,12 +34,28 @@ impl FieldElement {
         self.ct_eq(&FieldElement::zero())
     }
     /// Inverts a field element
+    /// Previous chain length: 462, new length 460
     pub fn invert(&self) -> FieldElement {
-        let mut t1 = self.square();
-        let (mut t2, _) = t1.inverse_square_root();
-        t1 = t2.square();
-        t2 = t1 * self;
-        t2
+        // Addition chain taken from https://github.com/mmcloughlin/addchain
+        let _1 = self;
+        let _10 = _1.square();
+        let _11 = *_1 * _10;
+        let _110 = _11.square();
+        let _111 = *_1 * _110;
+        let _111000 = _111.square_n(3);
+        let _111111 = _111 * _111000;
+
+        let x12 = _111111.square_n(6) * _111111;
+        let x24 = x12.square_n(12) * x12;
+        let i34 = x24.square_n(6);
+        let x30 = _111111 * i34;
+        let x48 = i34.square_n(18) * x24;
+        let x96 = x48.square_n(48) * x48;
+        let x192 = x96.square_n(96) * x96;
+        let x222 = x192.square_n(30) * x30;
+        let x223 = x222.square() * _1;
+
+        (x223.square_n(223) * x222).square_n(2) * _1
     }
     /// Squares a field element  `n` times
     fn square_n(&self, mut n: u32) -> FieldElement {
