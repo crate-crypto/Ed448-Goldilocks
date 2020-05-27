@@ -1,3 +1,11 @@
+// This file is part of curve25519-dalek.
+// Copyright (c) 2016-2019 Isis Lovecruft, Henry de Valence
+// See LICENSE for licensing information.
+//
+// Authors:
+// - Isis Agora Lovecruft <isis@patternsinthevoid.net>
+// - Henry de Valence <hdevalence@hdevalence.ca>
+
 use crate::constants::A_PLUS_TWO_OVER_FOUR;
 use crate::curve::edwards::extended::ExtendedPoint;
 use crate::field::{FieldElement, Scalar};
@@ -46,7 +54,6 @@ impl MontgomeryPoint {
         }
     }
 
-    // Taken from Dalek
     pub fn mul(&self, scalar: &Scalar) -> MontgomeryPoint {
         // Algorithm 8 of Costello-Smith 2017
         let affine_u = FieldElement::from_bytes(&self.0);
@@ -85,7 +92,6 @@ impl ConditionallySelectable for ProjectiveMontgomeryPoint {
     }
 }
 
-// Also taken from Dalek
 fn differential_add_and_double(
     P: &mut ProjectiveMontgomeryPoint,
     Q: &mut ProjectiveMontgomeryPoint,
