@@ -12,6 +12,7 @@ use crate::constants::A_PLUS_TWO_OVER_FOUR;
 use crate::curve::edwards::extended::ExtendedPoint;
 use crate::field::{FieldElement, Scalar};
 use std::fmt;
+use std::ops::Mul;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 // Low order points on Curve448 and it's twist
@@ -62,6 +63,40 @@ pub struct ProjectiveMontgomeryPoint {
     W: FieldElement,
 }
 
+impl Mul<&Scalar> for &MontgomeryPoint {
+    type Output = MontgomeryPoint;
+    fn mul(self, scalar: &Scalar) -> MontgomeryPoint {
+        // Algorithm 8 of Costello-Smith 2017
+        let affine_u = FieldElement::from_bytes(&self.0);
+        let mut x0 = ProjectiveMontgomeryPoint::identity();
+        let mut x1 = ProjectiveMontgomeryPoint {
+            U: affine_u,
+            W: FieldElement::one(),
+        };
+
+        let bits = scalar.bits();
+        let mut swap = 0;
+        for s in (0..448).rev() {
+            let bit = bits[s] as u8;
+            let choice: u8 = (swap ^ bit) as u8;
+
+            ProjectiveMontgomeryPoint::conditional_swap(&mut x0, &mut x1, Choice::from(choice));
+            differential_add_and_double(&mut x0, &mut x1, &affine_u);
+
+            swap = bit;
+        }
+
+        x0.to_affine()
+    }
+}
+
+impl Mul<&MontgomeryPoint> for &Scalar {
+    type Output = MontgomeryPoint;
+    fn mul(self, point: &MontgomeryPoint) -> MontgomeryPoint {
+        point * self
+    }
+}
+
 impl MontgomeryPoint {
     pub fn to_edwards(&self, sign: u8) -> Option<ExtendedPoint> {
         // We use the 4-isogeny to map to the Ed448.
@@ -93,30 +128,6 @@ impl MontgomeryPoint {
             U: FieldElement::from_bytes(&self.0),
             W: FieldElement::one(),
         }
-    }
-
-    pub fn mul(&self, scalar: &Scalar) -> MontgomeryPoint {
-        // Algorithm 8 of Costello-Smith 2017
-        let affine_u = FieldElement::from_bytes(&self.0);
-        let mut x0 = ProjectiveMontgomeryPoint::identity();
-        let mut x1 = ProjectiveMontgomeryPoint {
-            U: affine_u,
-            W: FieldElement::one(),
-        };
-
-        let bits = scalar.bits();
-        let mut swap = 0;
-        for s in (0..448).rev() {
-            let bit = bits[s] as u8;
-            let choice: u8 = (swap ^ bit) as u8;
-
-            ProjectiveMontgomeryPoint::conditional_swap(&mut x0, &mut x1, Choice::from(choice));
-            differential_add_and_double(&mut x0, &mut x1, &affine_u);
-
-            swap = bit;
-        }
-
-        x0.to_affine()
     }
 }
 
@@ -189,41 +200,6 @@ impl ProjectiveMontgomeryPoint {
 mod tests {
 
     use super::*;
-    use hex::decode as hex_decode;
-
-    fn slice_to_fixed_array(b: &[u8]) -> [u8; 56] {
-        let mut a: [u8; 56] = [0; 56];
-        a.copy_from_slice(&b);
-        a
-    }
-
-    fn hex_to_array(data: &str) -> [u8; 56] {
-        let bytes = hex_decode(data).unwrap();
-        slice_to_fixed_array(&bytes)
-    }
-
-    fn clamp(scalar: &mut [u8; 56]) {
-        scalar[0] &= 252;
-        scalar[55] |= 128;
-    }
-
-    // This will not stay here, it's only here so that we can be sure that the Ladder is being computed correctly
-    #[test]
-    fn test_rfc_vector() {
-        // Load RFC basepoint
-        let point_bytes = hex_to_array("0500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
-        let point = MontgomeryPoint(point_bytes);
-        // Clamp Scalar
-        let mut scalar_bytes = hex_to_array("9a8f4925d1519f5775cf46b04b5800d4ee9ee8bae8bc5565d498c28dd9c9baf574a9419744897391006382a6f127ab1d9ac2d8c0a598726b");
-        clamp(&mut scalar_bytes);
-        // Load RFC scalar
-        let scalar = Scalar::from_bytes(scalar_bytes);
-        // Compute output
-        let output = point.mul(&scalar);
-        // Expected output
-        let expected = hex_to_array("9b08f7cc31b7e3e67d22d5aea121074a273bd2b83de09c63faa73d2c22c5d9bbc836647241d953d40c5b12da88120d53177f80e532c41fa0");
-        assert_eq!(&output.0[..], &expected[..]);
-    }
 
     #[test]
     fn test_montgomery_edwards() {
@@ -232,7 +208,7 @@ mod tests {
 
         // Montgomery scalar mul
         let montgomery_bp = bp.to_montgomery();
-        let montgomery_res = montgomery_bp.mul(&scalar);
+        let montgomery_res = &montgomery_bp * &scalar;
 
         // Goldilocks scalar mul
         let goldilocks_point = bp.scalar_mul(&scalar);
