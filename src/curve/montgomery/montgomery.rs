@@ -73,6 +73,10 @@ impl MontgomeryPoint {
     pub fn is_low_order(&self) -> bool {
         (*self == LOW_A) || (*self == LOW_B) || (*self == LOW_C)
     }
+    /// View the point as a byte slice
+    pub fn as_bytes(&self) -> &[u8; 56] {
+        &self.0
+    }
 
     /// Returns the generator specified in RFC7748
     pub const fn generator() -> MontgomeryPoint {
