@@ -69,7 +69,7 @@ impl MontgomeryPoint {
         todo!()
     }
 
-    /// Returns true if the public key is not one of the low order points
+    /// Returns true if the point is one of the low order points
     pub fn is_low_order(&self) -> bool {
         (*self == LOW_A) || (*self == LOW_B) || (*self == LOW_C)
     }
