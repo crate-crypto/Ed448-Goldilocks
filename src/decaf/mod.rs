@@ -2,5 +2,5 @@
 // This is the newer version of the Decaf strategy, which looks simpler
 
 pub mod decaf;
-
+mod ops;
 pub use decaf::{CompressedDecaf, DecafPoint};

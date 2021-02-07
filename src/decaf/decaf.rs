@@ -1,36 +1,10 @@
-use crate::{Scalar, constants::{DECAF_BASEPOINT, DECAF_FACTOR, NEG_EDWARDS_D, NEG_FOUR_TIMES_TWISTED_D}, curve::scalar_mul::double_and_add};
+use crate::constants::{DECAF_BASEPOINT, DECAF_FACTOR, NEG_EDWARDS_D, NEG_FOUR_TIMES_TWISTED_D};
 use crate::curve::twedwards::extended::ExtendedPoint;
 use crate::field::FieldElement;
-use std::{fmt, ops::Mul};
+use std::fmt;
 use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
 
 pub struct DecafPoint(pub(crate) ExtendedPoint);
-
-impl<'s, 'p> Mul<&'s Scalar> for &'p DecafPoint {
-    type Output = DecafPoint;
-    fn mul(self, scalar: &'s Scalar) -> DecafPoint {
-        // XXX: We can do better than double and add
-        DecafPoint(double_and_add(&self.0, &scalar))
-    }
-}
-impl<'p, 's> Mul<&'p DecafPoint> for &'s Scalar {
-    type Output = DecafPoint;
-    fn mul(self, point: &'p DecafPoint) -> DecafPoint {
-        DecafPoint(double_and_add(&point.0,self))
-    }
-}
-impl Mul<DecafPoint> for Scalar {
-    type Output = DecafPoint;
-    fn mul(self, point: DecafPoint) -> DecafPoint {
-        DecafPoint(double_and_add(&point.0,&self))
-    }
-}
-impl Mul<Scalar> for DecafPoint {
-    type Output = DecafPoint;
-    fn mul(self, scalar : Scalar) -> DecafPoint {
-        DecafPoint(double_and_add(&self.0, &scalar))
-    }
-}
 
 #[derive(Copy, Clone)]
 pub struct CompressedDecaf(pub [u8; 56]);
@@ -73,8 +47,12 @@ impl DecafPoint {
         self.0.X * other.0.Y == self.0.Y * other.0.X
     }
 
-    pub fn add(&self, other: &DecafPoint) -> DecafPoint {
-        DecafPoint(self.0.to_extensible().add_extended(&other.0).to_extended())
+    // pub fn add(&self, other: &DecafPoint) -> DecafPoint {
+    //     DecafPoint(self.0.to_extensible().add_extended(&other.0).to_extended())
+    // }
+
+    pub fn sub(&self, other: &DecafPoint) -> DecafPoint {
+        DecafPoint(self.0.to_extensible().sub_extended(&other.0).to_extended())
     }
 
     // This will be simpler than the curve2519 case, as there is no need to lift the points
@@ -167,7 +145,7 @@ mod test {
         let expected_Decaf_P3 = DecafPoint(P3).compress().decompress().unwrap();
 
         // Adding the DecafPoint should be the same as adding the Edwards points and encoding the result as Decaf
-        let Decaf_P3 = Decaf_P.add(&Decaf_P2);
+        let Decaf_P3 = Decaf_P + Decaf_P2;
 
         assert!(Decaf_P3.equals(&expected_Decaf_P3));
     }
@@ -282,7 +260,7 @@ mod test {
         let generator = DecafPoint::generator();
         for compressed_point in compressed.iter() {
             assert_eq!(&point.compress(), compressed_point);
-            point = point.add(&generator);
+            point = &point + &generator;
         }
     }
 }
