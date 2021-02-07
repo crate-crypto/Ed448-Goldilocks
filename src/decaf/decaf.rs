@@ -13,6 +13,24 @@ impl<'s, 'p> Mul<&'s Scalar> for &'p DecafPoint {
         DecafPoint(double_and_add(&self.0, &scalar))
     }
 }
+impl<'p, 's> Mul<&'p DecafPoint> for &'s Scalar {
+    type Output = DecafPoint;
+    fn mul(self, point: &'p DecafPoint) -> DecafPoint {
+        DecafPoint(double_and_add(&point.0,self))
+    }
+}
+impl Mul<DecafPoint> for Scalar {
+    type Output = DecafPoint;
+    fn mul(self, point: DecafPoint) -> DecafPoint {
+        DecafPoint(double_and_add(&point.0,&self))
+    }
+}
+impl Mul<Scalar> for DecafPoint {
+    type Output = DecafPoint;
+    fn mul(self, scalar : Scalar) -> DecafPoint {
+        DecafPoint(double_and_add(&self.0, &scalar))
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct CompressedDecaf(pub [u8; 56]);
