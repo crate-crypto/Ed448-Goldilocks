@@ -1,10 +1,18 @@
-use crate::constants::{DECAF_BASEPOINT, DECAF_FACTOR, NEG_EDWARDS_D, NEG_FOUR_TIMES_TWISTED_D};
+use crate::{Scalar, constants::{DECAF_BASEPOINT, DECAF_FACTOR, NEG_EDWARDS_D, NEG_FOUR_TIMES_TWISTED_D}, curve::scalar_mul::double_and_add};
 use crate::curve::twedwards::extended::ExtendedPoint;
 use crate::field::FieldElement;
-use std::fmt;
+use std::{fmt, ops::Mul};
 use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
 
 pub struct DecafPoint(pub(crate) ExtendedPoint);
+
+impl<'s, 'p> Mul<&'s Scalar> for &'p DecafPoint {
+    type Output = DecafPoint;
+    fn mul(self, scalar: &'s Scalar) -> DecafPoint {
+        // XXX: We can do better than double and add
+        DecafPoint(double_and_add(&self.0, &scalar))
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct CompressedDecaf(pub [u8; 56]);
