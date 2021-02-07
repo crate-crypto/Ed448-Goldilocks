@@ -4,6 +4,7 @@ use crate::field::FieldElement;
 use std::fmt;
 use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
 
+#[derive(Debug)]
 pub struct DecafPoint(pub(crate) ExtendedPoint);
 
 #[derive(Copy, Clone)]
