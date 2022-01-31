@@ -14,6 +14,8 @@ use crate::field::{FieldElement, Scalar};
 use std::fmt;
 use std::ops::Mul;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
 
 // Low order points on Curve448 and it's twist
 const LOW_A: MontgomeryPoint = MontgomeryPoint([
@@ -36,6 +38,7 @@ const LOW_C: MontgomeryPoint = MontgomeryPoint([
 ]);
 
 #[derive(Copy, Clone)]
+#[cfg_attr(feature = "zeroize", derive(Zeroize))]
 pub struct MontgomeryPoint(pub [u8; 56]);
 
 impl fmt::Debug for MontgomeryPoint {

@@ -22,6 +22,12 @@ subtle = "2.2.2"
 hex = "0.4"
 fiat-crypto = { version = "0.1.4", optional = true}
 
+[dependencies.zeroize]
+version = "1"
+default-features = false
+features = ["zeroize_derive"]
+optional = true
+
 [features]
 default = ["fiat_u64_backend"]
 fiat_u64_backend = ["fiat-crypto"]
