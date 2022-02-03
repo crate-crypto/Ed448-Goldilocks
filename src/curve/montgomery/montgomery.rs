@@ -8,6 +8,8 @@
 // - Henry de Valence <hdevalence@hdevalence.ca>
 // - Kevaundray Wedderburn <kevtheappdev@gmail.com>
 
+#![allow(non_snake_case)]
+
 use crate::constants::A_PLUS_TWO_OVER_FOUR;
 use crate::curve::edwards::extended::ExtendedPoint;
 use crate::field::{FieldElement, Scalar};
