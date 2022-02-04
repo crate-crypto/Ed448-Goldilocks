@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use crate::constants::EDWARDS_D;
 use crate::curve::edwards::affine::AffinePoint;
 use crate::curve::montgomery::montgomery::MontgomeryPoint; // XXX: need to fix this path

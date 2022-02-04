@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use crate::curve::twedwards::{extended::ExtendedPoint, extensible::ExtensiblePoint};
 use crate::field::FieldElement;
 use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable};

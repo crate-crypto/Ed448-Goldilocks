@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use crate::constants::{DECAF_BASEPOINT, DECAF_FACTOR, NEG_EDWARDS_D, NEG_FOUR_TIMES_TWISTED_D};
 use crate::curve::twedwards::extended::ExtendedPoint;
 use crate::field::FieldElement;

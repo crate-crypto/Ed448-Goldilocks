@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use crate::curve::twedwards::extended::ExtendedPoint;
 use std::fmt;
 use subtle::{Choice, ConstantTimeEq};

@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use super::double_and_add;
 use crate::constants::TWISTED_EDWARDS_BASE_POINT;
 use crate::curve::twedwards::extended::ExtendedPoint;
