@@ -1,6 +1,9 @@
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
+use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConstantTimeEq};
+
+use crate::constants;
 
 /// This is the scalar field
 /// size = 4q = 2^446 - 0x8335dc163bb124b65129c96fde933d8d723a70aadc873d6d54a7bb0d
@@ -8,14 +11,16 @@ use subtle::{Choice, ConstantTimeEq};
 #[derive(Debug, Copy, Clone)]
 pub struct Scalar(pub(crate) [u32; 14]);
 
-const MODULUS: Scalar = Scalar([
-    0xab5844f3, 0x2378c292, 0x8dc58f55, 0x216cc272, 0xaed63690, 0xc44edb49, 0x7cca23e9, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x3fffffff,
-]);
+pub(crate) const MODULUS: Scalar = constants::BASEPOINT_ORDER;
+
 // Montgomomery R^2
 const R2: Scalar = Scalar([
     0x049b9b60, 0xe3539257, 0xc1b195d9, 0x7af32c4b, 0x88ea1859, 0x0d66de23, 0x5ee4d838, 0xae17cf72,
     0xa3c47c44, 0x1a9cc14b, 0xe4d070af, 0x2052bcb7, 0xf823b729, 0x3402a939,
+]);
+const R: Scalar = Scalar([
+    0x529eec34, 0x721cf5b5, 0xc8e9c2ab, 0x7a4cf635, 0x44a725bf, 0xeec492d9, 0xcd77058, 0x2, 0, 0,
+    0, 0, 0, 0,
 ]);
 
 impl ConstantTimeEq for Scalar {
@@ -260,6 +265,71 @@ impl Scalar {
 
         result
     }
+
+    /// Attempt to construct a `Scalar` from a canonical byte representation.
+    ///
+    /// # Return
+    ///
+    /// - `Some(s)`, where `s` is the `Scalar` corresponding to `bytes`,
+    ///   if `bytes` is a canonical byte representation;
+    /// - `None` if `bytes` is not a canonical byte representation.
+    pub fn from_canonical_bytes(bytes: [u8; 57]) -> Option<Scalar> {
+        // Check that the 10 high bits are not set
+        if bytes[56] != 0u8 || (bytes[55] >> 6) != 0u8 {
+            return None;
+        }
+        let bytes: [u8; 56] = std::array::from_fn(|i| bytes[i]);
+        let candidate = Scalar::from_bytes(bytes);
+
+        let reduced = sub_extra(&candidate, &MODULUS, 0);
+
+        if candidate == reduced {
+            Some(candidate)
+        } else {
+            None
+        }
+    }
+
+    /// Construct a `Scalar` by reducing a 912-bit little-endian integer
+    /// modulo the group order ℓ.
+    pub fn from_bytes_mod_order_wide(input: &[u8; 114]) -> Scalar {
+        let lo: [u8; 56] = std::array::from_fn(|i| input[i]);
+        let lo = Scalar::from_bytes(lo);
+        // montgomery_multiply computes ((a*b)/R) mod ℓ, thus this computes
+        // ((lo*R)/R) = lo mod ℓ
+        let lo = montgomery_multiply(&lo, &R);
+
+        let hi: [u8; 56] = std::array::from_fn(|i| input[i + 56]);
+        let hi = Scalar::from_bytes(hi);
+        // ((hi*R^2)/R) = hi * R mod ℓ
+        let hi = montgomery_multiply(&hi, &R2);
+
+        // There are only two bytes left, build an array with them and pad with zeroes
+        let top: [u8; 56] = std::array::from_fn(|i| if i < 2 { input[i + 112] } else { 0 });
+        let top = Scalar::from_bytes(top);
+        // ((top*R^2)/R) = top * R mod ℓ
+        let top = montgomery_multiply(&top, &R2);
+        // (((top*R)*R^2)/R) = top * R^2 mod ℓ
+        let top = montgomery_multiply(&top, &R2);
+
+        // lo + hi*R + top*R^2 mod ℓ is the final result we want
+        add(&lo, &hi).add(top)
+    }
+
+    /// Return a `Scalar` chosen uniformly at random using a user-provided RNG.
+    ///
+    /// # Inputs
+    ///
+    /// * `rng`: any RNG which implements the `RngCore + CryptoRng` interface.
+    ///
+    /// # Returns
+    ///
+    /// A random scalar within ℤ/lℤ.
+    pub fn random<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
+        let mut scalar_bytes = [0u8; 114];
+        rng.fill_bytes(&mut scalar_bytes);
+        Scalar::from_bytes_mod_order_wide(&scalar_bytes)
+    }
 }
 /// Computes a + b mod p
 pub fn add(a: &Scalar, b: &Scalar) -> Scalar {
@@ -355,6 +425,8 @@ fn montgomery_multiply(x: &Scalar, y: &Scalar) -> Scalar {
 }
 #[cfg(test)]
 mod test {
+    use std::convert::TryInto;
+
     use super::*;
     #[test]
     fn test_basic_add() {
@@ -467,5 +539,58 @@ mod test {
         ]);
         let s = k;
         dbg!(&s.to_radix_16()[..]);
+    }
+    #[test]
+    fn test_from_canonical_bytes() {
+        // ff..ff should fail
+        let mut bytes: [u8; 57] = hex::decode("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap().try_into().unwrap();
+        bytes.reverse();
+        let s = Scalar::from_canonical_bytes(bytes);
+        assert_eq!(s, None);
+
+        // n should fail
+        let mut bytes: [u8; 57] = hex::decode("003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f3").unwrap().try_into().unwrap();
+        bytes.reverse();
+        let s = Scalar::from_canonical_bytes(bytes);
+        assert_eq!(s, None);
+
+        // n-1 should work
+        let mut bytes: [u8; 57] = hex::decode("003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f2").unwrap().try_into().unwrap();
+        bytes.reverse();
+        let s = Scalar::from_canonical_bytes(bytes);
+        match s {
+            Some(s) => assert_eq!(s, Scalar::zero() - Scalar::one()),
+            None => panic!("should not return None"),
+        };
+    }
+
+    #[test]
+    fn test_from_bytes_mod_order_wide() {
+        // n should become 0
+        let mut bytes: [u8; 114] = hex::decode("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f3").unwrap().try_into().unwrap();
+        bytes.reverse();
+        let s = Scalar::from_bytes_mod_order_wide(&bytes);
+        assert_eq!(s, Scalar::zero());
+
+        // n-1 should stay the same
+        let mut bytes: [u8; 114] = hex::decode("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f2").unwrap().try_into().unwrap();
+        bytes.reverse();
+        let s = Scalar::from_bytes_mod_order_wide(&bytes);
+        assert_eq!(s, Scalar::zero() - Scalar::one());
+
+        // n+1 should become 1
+        let mut bytes: [u8; 114] = hex::decode("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f4").unwrap().try_into().unwrap();
+        bytes.reverse();
+        let s = Scalar::from_bytes_mod_order_wide(&bytes);
+        assert_eq!(s, Scalar::one());
+
+        // 2^912-1 should become 0x2939f823b7292052bcb7e4d070af1a9cc14ba3c47c44ae17cf72c985bb24b6c520e319fb37a63e29800f160787ad1d2e11883fa931e7de81
+        let mut bytes: [u8; 114] = hex::decode("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap().try_into().unwrap();
+        bytes.reverse();
+        let s = Scalar::from_bytes_mod_order_wide(&bytes);
+        let mut bytes: [u8; 57] = hex::decode("002939f823b7292052bcb7e4d070af1a9cc14ba3c47c44ae17cf72c985bb24b6c520e319fb37a63e29800f160787ad1d2e11883fa931e7de81").unwrap().try_into().unwrap();
+        bytes.reverse();
+        let reduced = Scalar::from_canonical_bytes(bytes).unwrap();
+        assert_eq!(s, reduced);
     }
 }

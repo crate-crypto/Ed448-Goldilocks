@@ -1,4 +1,8 @@
-use crate::constants::EDWARDS_D;
+use std::borrow::Borrow;
+use std::iter::Sum;
+use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+
+use crate::constants::{BASEPOINT_ORDER, EDWARDS_D};
 use crate::curve::edwards::affine::AffinePoint;
 use crate::curve::montgomery::montgomery::MontgomeryPoint; // XXX: need to fix this path
 use crate::curve::scalar_mul::variable_base;
@@ -281,13 +285,137 @@ impl ExtendedPoint {
             T: self.T,
         }
     }
+
+    /// Determine if this point is “torsion-free”, i.e., is contained in
+    /// the prime-order subgroup.
+    ///
+    /// # Return
+    ///
+    /// * `true` if `self` has zero torsion component and is in the
+    /// prime-order subgroup;
+    /// * `false` if `self` has a nonzero torsion component and is not
+    /// in the prime-order subgroup.
+    pub fn is_torsion_free(&self) -> bool {
+        (self * BASEPOINT_ORDER) == Self::identity()
+    }
 }
+
+// ------------------------------------------------------------------------
+// Addition and Subtraction
+// ------------------------------------------------------------------------
+
+impl<'a, 'b> Add<&'b ExtendedPoint> for &'a ExtendedPoint {
+    type Output = ExtendedPoint;
+    fn add(self, other: &'b ExtendedPoint) -> ExtendedPoint {
+        self.add(other)
+    }
+}
+
+define_add_variants!(
+    LHS = ExtendedPoint,
+    RHS = ExtendedPoint,
+    Output = ExtendedPoint
+);
+
+impl<'b> AddAssign<&'b ExtendedPoint> for ExtendedPoint {
+    fn add_assign(&mut self, _rhs: &'b ExtendedPoint) {
+        *self = (self as &ExtendedPoint) + _rhs;
+    }
+}
+
+define_add_assign_variants!(LHS = ExtendedPoint, RHS = ExtendedPoint);
+
+impl<'a, 'b> Sub<&'b ExtendedPoint> for &'a ExtendedPoint {
+    type Output = ExtendedPoint;
+    fn sub(self, other: &'b ExtendedPoint) -> ExtendedPoint {
+        self.add(&other.negate())
+    }
+}
+
+define_sub_variants!(
+    LHS = ExtendedPoint,
+    RHS = ExtendedPoint,
+    Output = ExtendedPoint
+);
+
+impl<'b> SubAssign<&'b ExtendedPoint> for ExtendedPoint {
+    fn sub_assign(&mut self, _rhs: &'b ExtendedPoint) {
+        *self = (self as &ExtendedPoint) - _rhs;
+    }
+}
+
+define_sub_assign_variants!(LHS = ExtendedPoint, RHS = ExtendedPoint);
+
+impl<T> Sum<T> for ExtendedPoint
+where
+    T: Borrow<ExtendedPoint>,
+{
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T>,
+    {
+        iter.fold(ExtendedPoint::identity(), |acc, item| acc + item.borrow())
+    }
+}
+
+// ------------------------------------------------------------------------
+// Negation
+// ------------------------------------------------------------------------
+
+impl<'a> Neg for &'a ExtendedPoint {
+    type Output = ExtendedPoint;
+
+    fn neg(self) -> ExtendedPoint {
+        self.negate()
+    }
+}
+
+impl Neg for ExtendedPoint {
+    type Output = ExtendedPoint;
+
+    fn neg(self) -> ExtendedPoint {
+        -&self
+    }
+}
+
+// ------------------------------------------------------------------------
+// Scalar multiplication
+// ------------------------------------------------------------------------
+
+impl<'b> MulAssign<&'b Scalar> for ExtendedPoint {
+    fn mul_assign(&mut self, scalar: &'b Scalar) {
+        let result = (self as &ExtendedPoint) * scalar;
+        *self = result;
+    }
+}
+
+define_mul_assign_variants!(LHS = ExtendedPoint, RHS = Scalar);
+
+define_mul_variants!(LHS = ExtendedPoint, RHS = Scalar, Output = ExtendedPoint);
+define_mul_variants!(LHS = Scalar, RHS = ExtendedPoint, Output = ExtendedPoint);
+
+impl<'a, 'b> Mul<&'b Scalar> for &'a ExtendedPoint {
+    type Output = ExtendedPoint;
+    /// Scalar multiplication: compute `scalar * self`.
+    fn mul(self, scalar: &'b Scalar) -> ExtendedPoint {
+        self.scalar_mul(scalar)
+    }
+}
+
+impl<'a, 'b> Mul<&'b ExtendedPoint> for &'a Scalar {
+    type Output = ExtendedPoint;
+
+    /// Scalar multiplication: compute `scalar * self`.
+    fn mul(self, point: &'b ExtendedPoint) -> ExtendedPoint {
+        point * self
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use super::*;
     use hex::decode as hex_decode;
+    use std::convert::TryInto;
     fn slice_to_fixed_array(b: &[u8]) -> [u8; 56] {
         let mut a: [u8; 56] = [0; 56];
         a.copy_from_slice(&b);
@@ -385,5 +513,15 @@ mod tests {
 
         assert_eq!(field_to_hex(&decompressed.X), "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
         assert_eq!(field_to_hex(&decompressed.Y), "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001");
+    }
+    #[test]
+    fn test_is_torsion_free() {
+        assert!(ExtendedPoint::generator().is_torsion_free());
+        assert!(ExtendedPoint::identity().is_torsion_free());
+
+        let bytes: [u8; 57] = hex::decode("13b6714c7a5f53101bbec88f2f17cd30f42e37fae363a5474efb4197ed6005df5861ae178a0c2c16ad378b7befed0d0904b7ced35e9f674180").unwrap().try_into().unwrap();
+        let compressed = CompressedEdwardsY(bytes);
+        let decompressed = compressed.decompress().unwrap();
+        assert!(!decompressed.is_torsion_free());
     }
 }
