@@ -103,7 +103,7 @@ impl CompressedDecaf {
         let v = ss * (NEG_FOUR_TIMES_TWISTED_D) + u1_sqr; // XXX: constantify please
 
         let (I, ok) = (v * u1_sqr).inverse_square_root();
-        if !ok {
+        if ok.unwrap_u8() == 0 {
             return None;
         }
 
