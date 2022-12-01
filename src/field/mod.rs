@@ -74,7 +74,7 @@ impl FieldElement {
     /// Computes the inverse square root of a field element
     /// Returns the result and a boolean to indicate whether self
     /// was a Quadratic residue
-    pub(crate) fn inverse_square_root(&self) -> (FieldElement, bool) {
+    pub(crate) fn inverse_square_root(&self) -> (FieldElement, Choice) {
         let (mut l0, mut l1, mut l2) = (
             FieldElement::zero(),
             FieldElement::zero(),
@@ -108,14 +108,19 @@ impl FieldElement {
         l2 = l1.square();
         l0 = l2 * self;
 
-        let is_residue = l0 == FieldElement::one();
+        let is_residue = l0.ct_eq(&FieldElement::one());
         (l1, is_residue)
     }
 
     /// Computes the square root ratio of two elements
-    pub(crate) fn sqrt_ratio(u: &FieldElement, v: &FieldElement) -> (FieldElement, bool) {
+    pub(crate) fn sqrt_ratio(u: &FieldElement, v: &FieldElement) -> (FieldElement, Choice) {
+        // Compute sqrt(1/(uv))
         let x = *u * v;
         let (inv_sqrt_x, is_res) = x.inverse_square_root();
-        (inv_sqrt_x * u, is_res)
+        // Return u * sqrt(1/(uv)) == sqrt(u/v). However, since this trick only works
+        // for u != 0, check for that case explicitly (when u == 0 then inv_sqrt_x
+        // will be zero, which is what we want, but is_res will be 0)
+        let zero_u = u.ct_eq(&FieldElement::zero());
+        (inv_sqrt_x * u, zero_u | is_res)
     }
 }

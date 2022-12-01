@@ -48,13 +48,14 @@ impl CompressedEdwardsY {
         let denominator = FieldElement::one() - dyy;
 
         let (mut x, is_res) = FieldElement::sqrt_ratio(&numerator, &denominator);
-        if !is_res {
+        if is_res.unwrap_u8() != 1 {
             return None;
         }
 
         // Compute correct sign of x
         let compressed_sign_bit = Choice::from(sign >> 7);
-        x.conditional_negate(compressed_sign_bit);
+        let is_negative = x.is_negative();
+        x.conditional_negate(compressed_sign_bit ^ is_negative);
 
         return Some(AffinePoint { x, y }.to_extended());
     }
@@ -165,7 +166,7 @@ impl ExtendedPoint {
         for i in 0..y_bytes.len() {
             compressed_bytes[i] = y_bytes[i]
         }
-        *compressed_bytes.last_mut().unwrap() = sign as u8;
+        *compressed_bytes.last_mut().unwrap() = (sign as u8) << 7;
         CompressedEdwardsY(compressed_bytes)
     }
 
@@ -283,6 +284,8 @@ impl ExtendedPoint {
 }
 #[cfg(test)]
 mod tests {
+    use std::convert::TryInto;
+
     use super::*;
     use hex::decode as hex_decode;
     fn slice_to_fixed_array(b: &[u8]) -> [u8; 56] {
@@ -295,6 +298,12 @@ mod tests {
         let mut bytes = hex_decode(data).unwrap();
         bytes.reverse();
         FieldElement::from_bytes(&slice_to_fixed_array(&bytes))
+    }
+
+    fn field_to_hex(f: &FieldElement) -> String {
+        let mut buf = f.to_bytes();
+        buf.reverse();
+        hex::encode(buf)
     }
 
     #[test]
@@ -350,5 +359,31 @@ mod tests {
         assert!(decompressed_point.is_some());
 
         assert!(gen == decompressed_point.unwrap());
+    }
+    #[test]
+    fn test_decompress_compress() {
+        let bytes: [u8; 57] = hex::decode("649c6a53b109897d962d033f23d01fd4e1053dddf3746d2ddce9bd66aea38ccfc3df061df03ca399eb806312ab3037c0c31523142956ada780").unwrap().try_into().unwrap();
+        let compressed = CompressedEdwardsY(bytes);
+        let decompressed = compressed.decompress().unwrap();
+
+        let recompressed = decompressed.compress();
+
+        assert_eq!(bytes, recompressed.0);
+    }
+    #[test]
+    fn test_just_decompress() {
+        let bytes: [u8; 57] = hex::decode("649c6a53b109897d962d033f23d01fd4e1053dddf3746d2ddce9bd66aea38ccfc3df061df03ca399eb806312ab3037c0c31523142956ada780").unwrap().try_into().unwrap();
+        let compressed = CompressedEdwardsY(bytes);
+        let decompressed = compressed.decompress().unwrap();
+
+        assert_eq!(field_to_hex(&decompressed.X), "39c41cea305d737df00de8223a0d5f4d48c8e098e16e9b4b2f38ac353262e119cb5ff2afd6d02464702d9d01c9921243fc572f9c718e2527");
+        assert_eq!(field_to_hex(&decompressed.Y), "a7ad5629142315c3c03730ab126380eb99a33cf01d06dfc3cf8ca3ae66bde9dc2d6d74f3dd3d05e1d41fd0233f032d967d8909b1536a9c64");
+
+        let bytes: [u8; 57] = hex::decode("010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap().try_into().unwrap();
+        let compressed = CompressedEdwardsY(bytes);
+        let decompressed = compressed.decompress().unwrap();
+
+        assert_eq!(field_to_hex(&decompressed.X), "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+        assert_eq!(field_to_hex(&decompressed.Y), "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001");
     }
 }
