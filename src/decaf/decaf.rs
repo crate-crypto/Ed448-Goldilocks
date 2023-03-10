@@ -1,9 +1,12 @@
+#![allow(non_snake_case)]
+
 use crate::constants::{DECAF_BASEPOINT, DECAF_FACTOR, NEG_EDWARDS_D, NEG_FOUR_TIMES_TWISTED_D};
 use crate::curve::twedwards::extended::ExtendedPoint;
 use crate::field::FieldElement;
 use std::fmt;
 use subtle::{Choice, ConditionallyNegatable, ConstantTimeEq};
 
+#[derive(Debug)]
 pub struct DecafPoint(pub(crate) ExtendedPoint);
 
 #[derive(Copy, Clone)]
@@ -47,14 +50,17 @@ impl DecafPoint {
         self.0.X * other.0.Y == self.0.Y * other.0.X
     }
 
-    pub fn add(&self, other: &DecafPoint) -> DecafPoint {
-        DecafPoint(self.0.to_extensible().add_extended(&other.0).to_extended())
+    // pub fn add(&self, other: &DecafPoint) -> DecafPoint {
+    //     DecafPoint(self.0.to_extensible().add_extended(&other.0).to_extended())
+    // }
+
+    pub fn sub(&self, other: &DecafPoint) -> DecafPoint {
+        DecafPoint(self.0.to_extensible().sub_extended(&other.0).to_extended())
     }
 
     // This will be simpler than the curve2519 case, as there is no need to lift the points
     // XXX: Using the twisted edwards coordinates, for this a = -1 and d = EDWARDS_D-1, but we can simply use the EDWARDS constants when simplified
-    // XXX: Should we call these functions compress and decompress?
-    pub fn encode(&self) -> CompressedDecaf {
+    pub fn compress(&self) -> CompressedDecaf {
         let X = self.0.X;
         let Y = self.0.Y;
         let Z = self.0.Z;
@@ -82,7 +88,7 @@ impl CompressedDecaf {
 
     // XXX: We allow the identity point
     /// XXX: Clean this up to be more descriptive of what is happening
-    pub fn decode(&self) -> Option<DecafPoint> {
+    pub fn decompress(&self) -> Option<DecafPoint> {
         let s = FieldElement::from_bytes(&self.0);
         //XX: Check for canonical encoding and sign,
         // Copied this check from Dalek: The From_bytes function does not throw an error, if the bytes exceed the prime.
@@ -137,12 +143,12 @@ mod test {
         let P3 = P2.to_extensible().add_extended(&P).to_extended();
 
         // Encode and decode to make them Decaf points
-        let Decaf_P = DecafPoint(P).encode().decode().unwrap();
-        let Decaf_P2 = DecafPoint(P2).encode().decode().unwrap();
-        let expected_Decaf_P3 = DecafPoint(P3).encode().decode().unwrap();
+        let Decaf_P = DecafPoint(P).compress().decompress().unwrap();
+        let Decaf_P2 = DecafPoint(P2).compress().decompress().unwrap();
+        let expected_Decaf_P3 = DecafPoint(P3).compress().decompress().unwrap();
 
         // Adding the DecafPoint should be the same as adding the Edwards points and encoding the result as Decaf
-        let Decaf_P3 = Decaf_P.add(&Decaf_P2);
+        let Decaf_P3 = Decaf_P + Decaf_P2;
 
         assert!(Decaf_P3.equals(&expected_Decaf_P3));
     }
@@ -150,7 +156,7 @@ mod test {
     #[test]
     fn test_identity() {
         // Basic test to check the identity is being encoded properly
-        let compress_identity = DecafPoint::identity().encode();
+        let compress_identity = DecafPoint::identity().compress();
         assert!(compress_identity == CompressedDecaf::identity())
     }
 
@@ -256,8 +262,8 @@ mod test {
         let mut point = DecafPoint::identity();
         let generator = DecafPoint::generator();
         for compressed_point in compressed.iter() {
-            assert_eq!(&point.encode(), compressed_point);
-            point = point.add(&generator);
+            assert_eq!(&point.compress(), compressed_point);
+            point = &point + &generator;
         }
     }
 }

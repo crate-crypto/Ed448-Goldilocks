@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use crate::constants::{TWISTED_D, TWO_TIMES_TWISTED_D};
 use crate::curve::twedwards::{
     affine::AffineNielsPoint, extended::ExtendedPoint, projective::ProjectiveNielsPoint,

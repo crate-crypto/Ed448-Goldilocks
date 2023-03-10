@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use super::window::wnaf::LookupTable;
 use crate::curve::twedwards::{extended::ExtendedPoint, extensible::ExtensiblePoint};
 use crate::field::Scalar;

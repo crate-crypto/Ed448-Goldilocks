@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use crate::constants::TWISTED_D;
 use crate::curve::edwards::ExtendedPoint as EdwardsExtendedPoint;
 use crate::curve::twedwards::affine::AffinePoint;

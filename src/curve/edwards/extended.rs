@@ -9,6 +9,7 @@ use crate::curve::scalar_mul::variable_base;
 use crate::curve::twedwards::extended::ExtendedPoint as TwistedExtendedPoint;
 use crate::field::{FieldElement, Scalar};
 use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
+#[allow(non_snake_case)]
 
 /// Represent points on the (untwisted) edwards curve using Extended Homogenous Projective Co-ordinates
 /// (x, y) -> (X/Z, Y/Z, Z, T)
