@@ -290,6 +290,14 @@ impl Scalar {
         }
     }
 
+    /// Serialize the scalar into 57 bytes, per RFC 8032.
+    /// Byte 56 will always be zero.
+    pub fn to_bytes_rfc_8032(&self) -> [u8; 57] {
+        let bytes = self.to_bytes();
+        let res: [u8; 57] = std::array::from_fn(|i| if i < 56 { bytes[i] } else { 0 });
+        res
+    }
+
     /// Construct a `Scalar` by reducing a 912-bit little-endian integer
     /// modulo the group order ℓ.
     pub fn from_bytes_mod_order_wide(input: &[u8; 114]) -> Scalar {
@@ -592,5 +600,15 @@ mod test {
         bytes.reverse();
         let reduced = Scalar::from_canonical_bytes(bytes).unwrap();
         assert_eq!(s, reduced);
+    }
+
+    #[test]
+    fn test_to_bytes_rfc8032() {
+        // n-1
+        let mut bytes: [u8; 57] = hex::decode("003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f2").unwrap().try_into().unwrap();
+        bytes.reverse();
+        let x = Scalar::zero() - Scalar::one();
+        let candidate = x.to_bytes_rfc_8032();
+        assert_eq!(bytes, candidate);
     }
 }
