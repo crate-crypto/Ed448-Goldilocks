@@ -1,5 +1,6 @@
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
+#[cfg(feature = "rand")]
 use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConstantTimeEq};
 
@@ -333,6 +334,7 @@ impl Scalar {
     /// # Returns
     ///
     /// A random scalar within ℤ/lℤ.
+    #[cfg(feature = "rand")]
     pub fn random<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
         let mut scalar_bytes = [0u8; 114];
         rng.fill_bytes(&mut scalar_bytes);
