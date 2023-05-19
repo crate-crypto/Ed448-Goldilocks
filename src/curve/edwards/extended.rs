@@ -416,7 +416,6 @@ impl<'a, 'b> Mul<&'b ExtendedPoint> for &'a Scalar {
 mod tests {
     use hex_literal::hex;
     use super::*;
-    use std::convert::TryInto;
 
     macro_rules! hex2field {
         ($data:literal) => {{

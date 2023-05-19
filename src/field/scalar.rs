@@ -435,8 +435,6 @@ fn montgomery_multiply(x: &Scalar, y: &Scalar) -> Scalar {
 }
 #[cfg(test)]
 mod test {
-    use std::convert::TryInto;
-
     use hex_literal::hex;
     use super::*;
 
