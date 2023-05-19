@@ -1,5 +1,6 @@
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
+#[cfg(feature = "rand")]
 use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConstantTimeEq};
 
@@ -333,6 +334,7 @@ impl Scalar {
     /// # Returns
     ///
     /// A random scalar within ℤ/lℤ.
+    #[cfg(feature = "rand")]
     pub fn random<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
         let mut scalar_bytes = [0u8; 114];
         rng.fill_bytes(&mut scalar_bytes);
@@ -433,9 +435,9 @@ fn montgomery_multiply(x: &Scalar, y: &Scalar) -> Scalar {
 }
 #[cfg(test)]
 mod test {
-    use std::convert::TryInto;
-
+    use hex_literal::hex;
     use super::*;
+
     #[test]
     fn test_basic_add() {
         let five = Scalar::from(5);
@@ -551,19 +553,19 @@ mod test {
     #[test]
     fn test_from_canonical_bytes() {
         // ff..ff should fail
-        let mut bytes: [u8; 57] = hex::decode("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap().try_into().unwrap();
+        let mut bytes: [u8; 57] = hex!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         bytes.reverse();
         let s = Scalar::from_canonical_bytes(bytes);
         assert_eq!(s, None);
 
         // n should fail
-        let mut bytes: [u8; 57] = hex::decode("003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f3").unwrap().try_into().unwrap();
+        let mut bytes: [u8; 57] = hex!("003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f3");
         bytes.reverse();
         let s = Scalar::from_canonical_bytes(bytes);
         assert_eq!(s, None);
 
         // n-1 should work
-        let mut bytes: [u8; 57] = hex::decode("003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f2").unwrap().try_into().unwrap();
+        let mut bytes: [u8; 57] = hex!("003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f2");
         bytes.reverse();
         let s = Scalar::from_canonical_bytes(bytes);
         match s {
@@ -575,28 +577,28 @@ mod test {
     #[test]
     fn test_from_bytes_mod_order_wide() {
         // n should become 0
-        let mut bytes: [u8; 114] = hex::decode("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f3").unwrap().try_into().unwrap();
+        let mut bytes: [u8; 114] = hex!("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f3");
         bytes.reverse();
         let s = Scalar::from_bytes_mod_order_wide(&bytes);
         assert_eq!(s, Scalar::zero());
 
         // n-1 should stay the same
-        let mut bytes: [u8; 114] = hex::decode("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f2").unwrap().try_into().unwrap();
+        let mut bytes: [u8; 114] = hex!("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f2");
         bytes.reverse();
         let s = Scalar::from_bytes_mod_order_wide(&bytes);
         assert_eq!(s, Scalar::zero() - Scalar::one());
 
         // n+1 should become 1
-        let mut bytes: [u8; 114] = hex::decode("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f4").unwrap().try_into().unwrap();
+        let mut bytes: [u8; 114] = hex!("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f4");
         bytes.reverse();
         let s = Scalar::from_bytes_mod_order_wide(&bytes);
         assert_eq!(s, Scalar::one());
 
         // 2^912-1 should become 0x2939f823b7292052bcb7e4d070af1a9cc14ba3c47c44ae17cf72c985bb24b6c520e319fb37a63e29800f160787ad1d2e11883fa931e7de81
-        let mut bytes: [u8; 114] = hex::decode("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap().try_into().unwrap();
+        let mut bytes: [u8; 114] = hex!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         bytes.reverse();
         let s = Scalar::from_bytes_mod_order_wide(&bytes);
-        let mut bytes: [u8; 57] = hex::decode("002939f823b7292052bcb7e4d070af1a9cc14ba3c47c44ae17cf72c985bb24b6c520e319fb37a63e29800f160787ad1d2e11883fa931e7de81").unwrap().try_into().unwrap();
+        let mut bytes: [u8; 57] = hex!("002939f823b7292052bcb7e4d070af1a9cc14ba3c47c44ae17cf72c985bb24b6c520e319fb37a63e29800f160787ad1d2e11883fa931e7de81");
         bytes.reverse();
         let reduced = Scalar::from_canonical_bytes(bytes).unwrap();
         assert_eq!(s, reduced);
@@ -605,7 +607,7 @@ mod test {
     #[test]
     fn test_to_bytes_rfc8032() {
         // n-1
-        let mut bytes: [u8; 57] = hex::decode("003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f2").unwrap().try_into().unwrap();
+        let mut bytes: [u8; 57] = hex!("003fffffffffffffffffffffffffffffffffffffffffffffffffffffff7cca23e9c44edb49aed63690216cc2728dc58f552378c292ab5844f2");
         bytes.reverse();
         let x = Scalar::zero() - Scalar::one();
         let candidate = x.to_bytes_rfc_8032();
