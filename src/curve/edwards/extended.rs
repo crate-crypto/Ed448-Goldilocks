@@ -417,18 +417,17 @@ mod tests {
     use hex_literal::hex;
     use super::*;
 
-    macro_rules! hex2field {
-        ($data:literal) => {{
-            let mut bytes = hex!($data);
-            bytes.reverse();
-            FieldElement::from_bytes(&bytes)
-        }};
+    fn hex_to_field(hex: &'static str) -> FieldElement {
+        assert_eq!(hex.len(), 56 * 2);
+        let mut bytes = hex_literal::decode(&[hex.as_bytes()]);
+        bytes.reverse();
+        FieldElement::from_bytes(&bytes)
     }
 
     #[test]
     fn test_isogeny() {
-        let x = hex2field!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
-        let y = hex2field!("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
+        let x = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
+        let y = hex_to_field("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
         let a = AffinePoint { x, y }.to_extended();
         let twist_a = a.to_twisted().to_untwisted();
         assert!(twist_a == a.double().double())
@@ -440,13 +439,13 @@ mod tests {
         use crate::constants::{GOLDILOCKS_BASE_POINT, TWISTED_EDWARDS_BASE_POINT};
 
         // This was the original basepoint which had order 2q;
-        let old_x = hex2field!("4F1970C66BED0DED221D15A622BF36DA9E146570470F1767EA6DE324A3D3A46412AE1AF72AB66511433B80E18B00938E2626A82BC70CC05E");
-        let old_y = hex2field!("693F46716EB6BC248876203756C9C7624BEA73736CA3984087789C1E05A0C2D73AD3FF1CE67C39C4FDBD132C4ED7C8AD9808795BF230FA14");
+        let old_x = hex_to_field("4F1970C66BED0DED221D15A622BF36DA9E146570470F1767EA6DE324A3D3A46412AE1AF72AB66511433B80E18B00938E2626A82BC70CC05E");
+        let old_y = hex_to_field("693F46716EB6BC248876203756C9C7624BEA73736CA3984087789C1E05A0C2D73AD3FF1CE67C39C4FDBD132C4ED7C8AD9808795BF230FA14");
         let old_bp = AffinePoint { x: old_x, y: old_y }.to_extended();
 
         // This is the new basepoint, that is in the ed448 paper
-        let new_x = hex2field!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
-        let new_y = hex2field!("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
+        let new_x = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
+        let new_y = hex_to_field("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
         let new_bp = AffinePoint { x: new_x, y: new_y }.to_extended();
 
         // Doubling the old basepoint, should give us the new basepoint
@@ -463,15 +462,15 @@ mod tests {
 
     #[test]
     fn test_is_on_curve() {
-        let x  = hex2field!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
-        let y  = hex2field!("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
+        let x = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
+        let y = hex_to_field("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
         let gen = AffinePoint { x, y }.to_extended();
         assert!(gen.is_on_curve());
     }
     #[test]
     fn test_compress_decompress() {
-        let x  = hex2field!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
-        let y  = hex2field!("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
+        let x = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
+        let y = hex_to_field("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
         let gen = AffinePoint { x, y }.to_extended();
 
         let decompressed_point = gen.compress().decompress();
@@ -495,15 +494,15 @@ mod tests {
         let compressed = CompressedEdwardsY(bytes);
         let decompressed = compressed.decompress().unwrap();
 
-        assert_eq!(decompressed.X, hex2field!("39c41cea305d737df00de8223a0d5f4d48c8e098e16e9b4b2f38ac353262e119cb5ff2afd6d02464702d9d01c9921243fc572f9c718e2527"));
-        assert_eq!(decompressed.Y, hex2field!("a7ad5629142315c3c03730ab126380eb99a33cf01d06dfc3cf8ca3ae66bde9dc2d6d74f3dd3d05e1d41fd0233f032d967d8909b1536a9c64"));
+        assert_eq!(decompressed.X, hex_to_field("39c41cea305d737df00de8223a0d5f4d48c8e098e16e9b4b2f38ac353262e119cb5ff2afd6d02464702d9d01c9921243fc572f9c718e2527"));
+        assert_eq!(decompressed.Y, hex_to_field("a7ad5629142315c3c03730ab126380eb99a33cf01d06dfc3cf8ca3ae66bde9dc2d6d74f3dd3d05e1d41fd0233f032d967d8909b1536a9c64"));
 
         let bytes = hex!("010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
         let compressed = CompressedEdwardsY(bytes);
         let decompressed = compressed.decompress().unwrap();
 
-        assert_eq!(decompressed.X, hex2field!("0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"));
-        assert_eq!(decompressed.Y, hex2field!("0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"));
+        assert_eq!(decompressed.X, hex_to_field("0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"));
+        assert_eq!(decompressed.Y, hex_to_field("0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"));
     }
     #[test]
     fn test_is_torsion_free() {

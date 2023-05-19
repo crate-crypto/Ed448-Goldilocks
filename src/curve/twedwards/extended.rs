@@ -170,22 +170,20 @@ impl ExtendedPoint {
 }
 #[cfg(test)]
 mod tests {
-    use hex_literal::hex;
     use super::*;
     use crate::constants::{GOLDILOCKS_BASE_POINT, TWISTED_EDWARDS_BASE_POINT};
 
-    macro_rules! hex2field {
-        ($data:literal) => {{
-            let mut bytes = hex!($data);
-            bytes.reverse();
-            FieldElement::from_bytes(&bytes)
-        }};
+    fn hex_to_field(hex: &'static str) -> FieldElement {
+        assert_eq!(hex.len(), 56 * 2);
+        let mut bytes = hex_literal::decode(&[hex.as_bytes()]);
+        bytes.reverse();
+        FieldElement::from_bytes(&bytes)
     }
 
     #[test]
     fn test_isogeny() {
-        let x  = hex2field!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
-        let y  = hex2field!("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
+        let x = hex_to_field("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa955555555555555555555555555555555555555555555555555555555");
+        let y = hex_to_field("ae05e9634ad7048db359d6205086c2b0036ed7a035884dd7b7e36d728ad8c4b80d6565833a2a3098bbbcb2bed1cda06bdaeafbcdea9386ed");
         let a = AffinePoint { x, y }.to_extended();
         let twist_a = a.to_untwisted().to_twisted();
         assert!(twist_a == a.double().double())
