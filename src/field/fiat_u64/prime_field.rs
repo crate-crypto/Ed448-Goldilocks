@@ -164,6 +164,8 @@ impl FieldElement56 {
     pub(crate) fn negate(&self) -> FieldElement56 {
         let mut result = FieldElement56::zero();
         fiat_p448_opp(&mut result.0, &self.0);
+        let cloned = result.clone();
+        fiat_p448_carry(&mut result.0, &cloned.0);
         result
     }
 
@@ -188,5 +190,18 @@ impl FieldElement56 {
         let mut result = FieldElement56::zero();
         fiat_p448_sub(&mut result.0, &self.0, &rhs.0);
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_negate() {
+        let x = FieldElement56::zero();
+        let y = x.negate();
+        assert_eq!(y.to_bytes(), [0u8; 56]);
     }
 }
