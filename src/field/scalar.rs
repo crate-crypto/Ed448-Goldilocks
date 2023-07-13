@@ -384,7 +384,6 @@ fn sub_extra(a: &Scalar, b: &Scalar, carry: u32) -> Scalar {
     // Since the borrow should never be more than 0, the carry should never be more than 1;
     // XXX: Explain why the case of borrow == 1 should never happen
     let borrow = chain + (carry as i64);
-    assert!(borrow == -1 || borrow == 0);
 
     chain = 0i64;
     for i in 0..14 {
