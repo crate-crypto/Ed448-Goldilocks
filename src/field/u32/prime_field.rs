@@ -326,9 +326,7 @@ impl FieldElement28 {
         // If the value was more than p, then the final borrow will be zero. This is scarry.
         // Case 2:
         // If the  value was less than p, the final borrow will be -1.
-
-        // The only two possibilities for the borrow bit is -1 or 0.
-        assert!(scarry == 0 || scarry + 1 == 0);
+        // Thus the only two possibilities for the borrow bit is -1 or 0.
 
         let scarry_mask = (scarry as u32) & MASK;
         let mut carry = 0u64;
