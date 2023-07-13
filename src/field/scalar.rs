@@ -179,7 +179,7 @@ impl Scalar {
         montgomery_multiply(&self, &self)
     }
     pub fn invert(&self) -> Self {
-        let mut pre_comp: Vec<Scalar> = vec![Scalar::zero(); 8];
+        let mut pre_comp = [Scalar::zero(); 8];
         let mut result = Scalar::zero();
 
         let scalar_window_bits = 3;
