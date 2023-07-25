@@ -10,8 +10,14 @@ use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable};
 
 // XXX: Check if the Serialisation procedure in FieldElement56 is consistent with FieldElement28
 
-#[derive(Copy, Clone, Debug)]
-pub struct FieldElement56(pub(crate) [u64; 8]);
+#[derive(Copy, Clone)]
+pub struct FieldElement56(pub(crate) fiat_p448_tight_field_element);
+
+impl std::fmt::Debug for FieldElement56 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("FieldElement56").field(&self.0 .0).finish()
+    }
+}
 
 ////
 /// Trait Implementations
@@ -33,7 +39,11 @@ impl Mul<&FieldElement56> for &FieldElement56 {
     type Output = FieldElement56;
     fn mul(self, rhs: &FieldElement56) -> Self::Output {
         let mut result = FieldElement56::zero();
-        fiat_p448_carry_mul(&mut result.0, &self.0, &rhs.0);
+        let mut self_loose = fiat_p448_loose_field_element([0; 8]);
+        fiat_p448_relax(&mut self_loose, &self.0);
+        let mut rhs_loose = fiat_p448_loose_field_element([0; 8]);
+        fiat_p448_relax(&mut rhs_loose, &rhs.0);
+        fiat_p448_carry_mul(&mut result.0, &self_loose, &rhs_loose);
         result
     }
 }
@@ -53,17 +63,21 @@ impl Mul<FieldElement56> for FieldElement56 {
 impl Add<FieldElement56> for FieldElement56 {
     type Output = FieldElement56;
     fn add(self, rhs: FieldElement56) -> Self::Output {
-        let mut inter_res = self.add_no_reduce(&rhs);
-        inter_res.strong_reduce();
-        inter_res
+        let mut result_loose = fiat_p448_loose_field_element([0; 8]);
+        fiat_p448_add(&mut result_loose, &self.0, &rhs.0);
+        let mut result = FieldElement56::zero();
+        fiat_p448_carry(&mut result.0, &result_loose);
+        result
     }
 }
 impl Sub<FieldElement56> for FieldElement56 {
     type Output = FieldElement56;
     fn sub(self, rhs: FieldElement56) -> Self::Output {
-        let mut inter_res = self.sub_no_reduce(&rhs);
-        inter_res.strong_reduce();
-        inter_res
+        let mut result_loose = fiat_p448_loose_field_element([0; 8]);
+        fiat_p448_sub(&mut result_loose, &self.0, &rhs.0);
+        let mut result = FieldElement56::zero();
+        fiat_p448_carry(&mut result.0, &result_loose);
+        result
     }
 }
 
@@ -81,7 +95,7 @@ impl ConditionallySelectable for FieldElement56 {
         choice: Choice,
     ) -> FieldElement56 {
         let mut result = FieldElement56::zero();
-        fiat_p448_selectznz(&mut result.0, choice.unwrap_u8(), &a.0, &b.0);
+        fiat_p448_selectznz(&mut (result.0).0, choice.unwrap_u8(), &(a.0).0, &(b.0).0);
         result
     }
 }
@@ -98,13 +112,13 @@ impl Default for FieldElement56 {
 
 impl FieldElement56 {
     pub const fn zero() -> FieldElement56 {
-        FieldElement56([0; 8])
+        FieldElement56(fiat_p448_tight_field_element([0; 8]))
     }
     pub const fn one() -> FieldElement56 {
-        FieldElement56([1, 0, 0, 0, 0, 0, 0, 0])
+        FieldElement56(fiat_p448_tight_field_element([1, 0, 0, 0, 0, 0, 0, 0]))
     }
     pub fn minus_one() -> FieldElement56 {
-        FieldElement56([
+        FieldElement56(fiat_p448_tight_field_element([
             144115188075855869,
             144115188075855870,
             144115188075855870,
@@ -113,7 +127,7 @@ impl FieldElement56 {
             144115188075855870,
             144115188075855870,
             144115188075855870,
-        ])
+        ]))
     }
 }
 
@@ -133,7 +147,7 @@ impl FieldElement56 {
 impl FieldElement56 {
     /// Helper function for internally constructing a field element
     pub(crate) const fn from_raw_slice(slice: [u64; 8]) -> FieldElement56 {
-        FieldElement56(slice)
+        FieldElement56(fiat_p448_tight_field_element(slice))
     }
 
     /// This does not check if the encoding is canonical (ie if the input is reduced)
@@ -156,16 +170,18 @@ impl FieldElement56 {
 impl FieldElement56 {
     /// Squares a field element
     pub(crate) fn square(&self) -> FieldElement56 {
+        let mut self_loose = fiat_p448_loose_field_element([0; 8]);
+        fiat_p448_relax(&mut self_loose, &self.0);
         let mut result = FieldElement56::zero();
-        fiat_p448_carry_square(&mut result.0, &self.0);
+        fiat_p448_carry_square(&mut result.0, &self_loose);
         result
     }
     /// Negates a field element
     pub(crate) fn negate(&self) -> FieldElement56 {
+        let mut result_loose = fiat_p448_loose_field_element([0; 8]);
+        fiat_p448_opp(&mut result_loose, &self.0);
         let mut result = FieldElement56::zero();
-        fiat_p448_opp(&mut result.0, &self.0);
-        let cloned = result.clone();
-        fiat_p448_carry(&mut result.0, &cloned.0);
+        fiat_p448_carry(&mut result.0, &result_loose);
         result
     }
 
@@ -173,23 +189,9 @@ impl FieldElement56 {
     /// This is used when checking equality between two field elements and
     /// when encoding a field element
     pub(crate) fn strong_reduce(&mut self) {
-        let cloned = self.clone(); // XXX: Cannot borrow mutably and immutably
-        fiat_p448_carry(&mut self.0, &cloned.0);
-    }
-
-    /// Adds two field elements together
-    /// Result is not reduced
-    pub(crate) fn add_no_reduce(&self, rhs: &FieldElement56) -> FieldElement56 {
-        let mut result = FieldElement56::zero();
-        fiat_p448_add(&mut result.0, &self.0, &rhs.0);
-        result
-    }
-    /// Subtracts the two field elements from each other
-    /// Result is not reduced
-    pub(crate) fn sub_no_reduce(&self, rhs: &FieldElement56) -> FieldElement56 {
-        let mut result = FieldElement56::zero();
-        fiat_p448_sub(&mut result.0, &self.0, &rhs.0);
-        result
+        let mut self_loose = fiat_p448_loose_field_element([0; 8]);
+        fiat_p448_relax(&mut self_loose, &self.0);
+        fiat_p448_carry(&mut self.0, &self_loose);
     }
 }
 
