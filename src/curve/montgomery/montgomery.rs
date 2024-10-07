@@ -1,7 +1,8 @@
 // The original file was a part of curve25519-dalek.
 // Copyright (c) 2016-2019 Isis Lovecruft, Henry de Valence
 // Copyright (c) 2020 Kevaundray Wedderburn
-// See LICENSE for licensing information.
+// Licensed under BSD-3-Clause license
+// (See https://github.com/dalek-cryptography/curve25519-dalek/blob/main/curve25519-dalek/LICENSE for more information)
 //
 // Authors:
 // - Isis Agora Lovecruft <isis@patternsinthevoid.net>
